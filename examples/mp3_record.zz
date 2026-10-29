@@ -1,0 +1,16 @@
+zumzum 0.1
+name "An acoustic 1920 78 rpm record, mp3 in, mp3 out"
+about "Note: take out the clicks and the surface hiss, keep the band; do not make it dull."
+
+sel pause = time(t_s: 0.2..2.2)            # the lead-in groove before the music: noise only
+sel band = band(f_hz: 200..3000)           # where an acoustic recording carries the music
+
+node level = gain(db: -1)                  # the record peaks at full scale: make a little room
+node c = declick(sensitivity: 10, max_ms: 3)
+node d = denoise(mode: mmse, profile_t_s: 0.2..2.2, reduce_db: 20, noise_db: 3)
+layer main = level -> c -> d
+
+check clicks_out = clicks(max: 60)
+check hiss_down = drop(at: pause, min_db: 10)
+check band_kept = keep(at: band, tol_db: 2)
+check no_clip = peak(max_dbfs: -0.1)

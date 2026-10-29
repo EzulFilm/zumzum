@@ -1,0 +1,13 @@
+zumzum 0.1
+name "Mains hum under a voice"
+about "Note: remove the 60 Hz hum, keep the voice as it is."
+
+sel hum_lines = harmonics(f0_hz: 60, count: 16, width_hz: 50)
+sel voice = band(f_hz: 200..4000) and not hum_lines   # the voice between the hum lines
+
+node h = dehum(f0_hz: 60, harmonics: 16, depth_db: 50)
+layer main = h
+
+check hum_gone = hum_drop(f0_hz: 60, harmonics: 16, min_db: 30)
+check voice_kept = keep(at: voice, tol_db: 1)
+check no_clip = peak(max_dbfs: -0.1)

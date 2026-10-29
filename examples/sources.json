@@ -1,0 +1,54 @@
+{
+  "about": "Test audio for the examples: public domain or CC0 only, from Wikimedia Commons. Licence and author as stated on each file page (checked 2026-10-28). Audio files are never committed (cache/audio is git-ignored); tools/fetch_audio.py downloads them and checks SHA-256.",
+  "files": {
+    "speech_whitman": {
+      "page": "https://commons.wikimedia.org/wiki/File:LibriVox_-_O_Captain!_My_Captain!_-_Annie_Coleman.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/f8/LibriVox_-_O_Captain%21_My_Captain%21_-_Annie_Coleman.ogg",
+      "licence": "Public domain (LibriVox recording; Walt Whitman text, 1865)",
+      "author": "Walt Whitman, read aloud by Annie Coleman (LibriVox)",
+      "sha256": "1ea60079e4fa20a577e387fca6e79217d19d481d323a2040cc65fdcf71b4d307"
+    },
+    "cylinder_1888": {
+      "page": "https://commons.wikimedia.org/wiki/File:Arthur_Sullivan_-_wax_cylinder_recording.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/35/Arthur_Sullivan_-_wax_cylinder_recording.ogg",
+      "licence": "Public domain (Edison wax cylinder, recorded 1888-10-05; source: US National Park Service, Edison NHP)",
+      "author": "George Gouraud (speech by Arthur Sullivan)",
+      "sha256": "6409cb50832f3c156ad417980e282c68535c7ac41b22e3ada552f3a3a68a6883"
+    },
+    "jazz_1917": {
+      "page": "https://commons.wikimedia.org/wiki/File:Original_Dixieland_Jass_Band_-_Livery_Stable_Blues_(1917)_alternate_edit.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Original_Dixieland_Jass_Band_-_Livery_Stable_Blues_%281917%29_alternate_edit.ogg",
+      "licence": "Public domain (78 rpm record, recorded 1917-02-26; US public domain as a pre-1923 recording; transfer from the Internet Archive)",
+      "author": "Original Dixieland Jass Band",
+      "sha256": "d5ae873ea9d7ee3627e1c77c80ec85b4fa90c01bb5d10d8d762e670ab887707e"
+    },
+    "telephone": {
+      "page": "https://commons.wikimedia.org/wiki/File:Telephone.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Telephone.ogg",
+      "licence": "Public domain (released by the author, own work 2008)",
+      "author": "Dsw4",
+      "sha256": "066acebdd1150f6680505cac290e6c2506b525eb69adef86ba2364877ffbee6c"
+    },
+    "drum_break": {
+      "page": "https://commons.wikimedia.org/wiki/File:Bauchamp_-_130_old_drum_break.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/02/Bauchamp_-_130_old_drum_break.ogg",
+      "licence": "CC0 1.0",
+      "author": "Bauchamp",
+      "sha256": "36000671fefe2672f870becc8436b15fb9d55e57e284adb01b6f1dd56d61222d"
+    },
+    "piano_bach": {
+      "page": "https://commons.wikimedia.org/wiki/File:Bach,_Goldberg_Variations,_Aria_(Musopen_version).ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/af/Bach%2C_Goldberg_Variations%2C_Aria_%28Musopen_version%29.ogg",
+      "licence": "CC0 1.0 (Musopen)",
+      "author": "J. S. Bach (composition); Musopen recording",
+      "sha256": "b5f9cd0939b66b133b29e03a6d149dd23770bd53b8ccb0e306495024538422e2"
+    },
+    "mp3_sandman_1920": {
+      "page": "https://commons.wikimedia.org/wiki/File:%22The_Japanese_Sandman%22,_by_Paul_Whiteman,_Acoustic_1920_78_rpm.mp3",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/0e/%22The_Japanese_Sandman%22%2C_by_Paul_Whiteman%2C_Acoustic_1920_78_rpm.mp3",
+      "licence": "Public domain (acoustic 78 rpm record, recorded 1920-08-23; US public domain as a pre-1923 recording)",
+      "author": "Paul Whiteman and his orchestra",
+      "sha256": "fd902da174637dd31dff7b6d8534d736d8c09b7d1492c5e5242a1a20a5303e81"
+    }
+  }
+}

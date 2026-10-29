@@ -1,0 +1,18 @@
+zumzum 0.1
+name "Hiss on an 1888 wax cylinder"
+about "Note: less hiss, keep the words clear; do not make it sound underwater."
+
+# the noise sample: the longest pause the analysis found (the other pauses are kept for measuring)
+sel noise = time(t_s: 16.1..16.6)
+sel pause = time(t_s: 11.7..12.2)
+sel words = band(f_hz: 400..2000)
+sel treble = band(f_hz: 4500..22050, feather_hz: 1000)   # above what a cylinder carries: mostly hiss
+
+node d = denoise(mode: mmse, profile: noise, reduce_db: 30, noise_db: 3, smooth: 0.99, smooth_hz: 40, smooth_ms: 40,
+  gate_db: 8)
+node hs = gain(db: -4) at treble
+layer main = d -> hs
+
+check hiss_down = drop(at: pause, min_db: 20)
+check words_kept = keep(at: words, tol_db: 1)
+check no_clip = peak(max_dbfs: -0.1)

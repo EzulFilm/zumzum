@@ -1,0 +1,15 @@
+Zumzum
+Copyright 2026 the Zumzum author (to be assigned to Ezul on its formation).
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+"Zumzum" is a name used by Ezul and is not licensed under the Apache License.
+
+Zumzum uses, without bundling them:
+- NumPy (BSD-3-Clause) and SciPy (BSD-3-Clause);
+- soundfile (BSD-3-Clause), which loads libsndfile (LGPL-2.1, shipped with soundfile's own packages, not with Zumzum);
+- matplotlib (PSF-based Matplotlib licence), for review sheets;
+- pytest (MIT), for the tests.
+
+The example audio is not part of this repository. tools/fetch_audio.py downloads public domain and CC0 recordings
+from Wikimedia Commons, each checked by SHA-256; examples/sources.json lists each source, author and licence.

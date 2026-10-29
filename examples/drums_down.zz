@@ -1,0 +1,13 @@
+zumzum 0.1
+name "Drums too loud over a piano"
+about "Note: bring the drums down about 12 dB, leave the piano alone."
+
+sel cymbals = band(f_hz: 5000..16000)
+sel piano = band(f_hz: 200..1000)
+
+node d = split_hp(part: harmonic, rest_db: -12, time_ms: 800, freq_hz: 1000)
+layer main = d
+
+check drums_down = drop(at: cymbals, min_db: 8)
+check piano_kept = keep(at: piano, tol_db: 3)
+check no_clip = peak(max_dbfs: -0.1)

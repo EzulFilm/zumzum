@@ -1,0 +1,25 @@
+zumzum 0.1
+name "Phone dial tones over a reading"
+about "Note: remove the phone dialling at 0:09 (its tones and its low rumble), keep the voice."
+
+# one box per touch-tone digit, at the times of the tonal events the analysis reports (9.28 s .. 12.27 s), each
+# 40 ms wider on both sides; a digit is two tones, one in each touch-tone group
+sel low_tones = (box(t_s: 9.24..9.50, f_hz: 650..990) or box(t_s: 9.45..9.69, f_hz: 650..990)
+  or box(t_s: 9.84..10.08, f_hz: 650..990) or box(t_s: 10.19..10.43, f_hz: 650..990)
+  or box(t_s: 10.54..10.78, f_hz: 650..990) or box(t_s: 11.02..11.31, f_hz: 650..990)
+  or box(t_s: 11.40..11.78, f_hz: 650..990) or box(t_s: 12.07..12.31, f_hz: 650..990))
+sel high_tones = (box(t_s: 9.24..9.50, f_hz: 1180..1520) or box(t_s: 9.45..9.69, f_hz: 1180..1520)
+  or box(t_s: 9.84..10.08, f_hz: 1180..1520) or box(t_s: 10.19..10.43, f_hz: 1180..1520)
+  or box(t_s: 10.54..10.78, f_hz: 1180..1520) or box(t_s: 11.02..11.31, f_hz: 1180..1520)
+  or box(t_s: 11.40..11.78, f_hz: 1180..1520) or box(t_s: 12.07..12.31, f_hz: 1180..1520))
+sel tones = low_tones or high_tones
+sel rumble = box(t_s: 9.0..12.5, f_hz: 0..180, feather_ms: 50)
+sel rest = not (tones or rumble)
+
+node t = heal(direction: time, context_ms: 60) at tones
+node r = heal(direction: time) at rumble
+layer main = t -> r
+
+check tones_gone = drop(at: tones, min_db: 10)
+check rumble_gone = drop(at: rumble, min_db: 10)
+check rest_untouched = untouched(at: rest, max_db: -30)

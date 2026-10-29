@@ -1,0 +1,12 @@
+zumzum 0.1
+name "Clicks on a 1917 78 rpm record"
+about "Note: take out the clicks and crackle, change nothing else."
+
+sel music = band(f_hz: 100..4000)   # the band the 1917 record carries
+
+node c = declick(sensitivity: 10, max_ms: 3)
+layer main = c
+
+check few_clicks = clicks(max: 100)
+check music_kept = keep(at: music, tol_db: 0.5)
+check no_clip = peak(max_dbfs: -0.1)

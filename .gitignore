@@ -1,0 +1,11 @@
+cache/
+out/
+venv/
+__pycache__/
+*.wav
+*.flac
+*.ogg
+*.mp3
+*.opus
+*.gguf
+plugins-venv/

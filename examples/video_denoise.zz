@@ -1,0 +1,17 @@
+zumzum 0.1
+name "Hiss on a 1920s newsreel"
+about "Note: clean up the hiss and the low rumble under the speech, keep the voice natural; the picture stays as it is."
+
+sel profile = time(t_s: 101.5..102.5)     # a pause the analysis found: noise only
+sel pause = time(t_s: 87.0..87.9)         # another pause, used only to measure
+sel rumble = band(f_hz: 0..70, feather_hz: 20)
+sel words = band(f_hz: 300..3000)
+
+node level = gain(db: -3)                 # the decoded sound peaks above full scale: make room first
+node d = denoise(mode: mmse, profile_t_s: 101.5..102.5, reduce_db: 15)
+node low = gain(db: -12) at rumble
+layer main = level -> d -> low
+
+check hiss_down = drop(at: pause, min_db: 8)
+check words_kept = keep(at: words, tol_db: 6)
+check no_clip = peak(max_dbfs: -0.1)
