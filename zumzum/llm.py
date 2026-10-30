@@ -18,6 +18,7 @@ import numpy as np
 from .lang import statements
 
 from .analysis import analyze, summary
+from .audio import validate
 from .checker import check
 from .engine import render
 from .errors import CheckError
@@ -239,6 +240,7 @@ def node_effects(info):
 def edit_loop(note, audio, sr, provider, max_iters=3, log=print):
     """Run the loop on one note. Returns {"done", "versions": [...]}; each version keeps the model's text, the
     program that ran (with the note's checks merged in), checker problems or check results, damage and a diff."""
+    validate(audio, sr)  # bad input is the caller's problem, never fed to the model as a checker error
     a = analyze(audio, sr)
     nsels, nchecks, goals = note_goals(note, a)
     versions, prev, feedback = [], None, None

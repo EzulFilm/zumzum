@@ -409,7 +409,9 @@ def apply_op(op, x, sr, prog, info):
 def render(prog, audio, sr):
     """Checked program, audio (channels, n) or (n,) -> ({layer: audio (channels, n)}, info per node). A program
     whose output mixes layers also gets out["mix"]."""
+    from .audio import validate
     a = np.atleast_2d(np.asarray(audio, dtype=np.float64))
+    validate(a, sr)
     out, info = {}, {}
     for lname, chain in prog.layers:
         y = a.copy()

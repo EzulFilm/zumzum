@@ -101,11 +101,11 @@ def sheet(path, before, after, sr, title, checks, program_name, fmax=8000, zoom=
                 cb = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.03)
                 cb.ax.tick_params(colors=FG, labelsize=8)
                 cb.set_label("dB change" if i == 2 else "dBFS", color=FG, fontsize=9)
-    fig.suptitle(title, color=FG, fontsize=14, x=0.06, y=0.99, ha="left")
-    fig.text(0.06, 0.957, f"program: {program_name}", color="#9aa0ac", fontsize=10)
+    fig.suptitle(title, color=FG, fontsize=14, x=0.06, y=0.99, ha="left", parse_math=False)
+    fig.text(0.06, 0.957, f"program: {program_name}", color="#9aa0ac", fontsize=10, parse_math=False)
     lines = [f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}: {c['text']}" for c in checks]
     for k, line in enumerate(lines):
-        fig.text(0.06, 0.012 + 0.017 * (len(lines) - 1 - k), line, fontsize=10, family="monospace",
+        fig.text(0.06, 0.012 + 0.017 * (len(lines) - 1 - k), line, fontsize=10, family="monospace", parse_math=False,
                  color="#8fe388" if line.startswith("PASS") else "#ff8a80")
     fig.savefig(path, dpi=90, facecolor=BG)
     plt.close(fig)
@@ -158,4 +158,4 @@ def pretty_panel(ax, S, f, t, top, title, range_db=80, gamma=0.75):
     for s in ax.spines.values():
         s.set_color("#2a2f3a")
     ax.tick_params(colors="#9aa0ac", labelsize=9)
-    ax.set_title(title, fontsize=11, loc="left", color="#d8dbe2")
+    ax.set_title(title, fontsize=11, loc="left", color="#d8dbe2", parse_math=False)

@@ -156,4 +156,8 @@ LIMITS = {
     "sel_calls": 16,          # selection calls in one expression as written
     "sel_calls_expanded": 64,  # ... once named selections are expanded
     "nesting": 16,
+    "sr_min": 8000, "sr_max": 192000,  # Hz, for any audio a program runs on
+    "channels": 8,
+    "duration_s": 3600,       # one hour
+    "samples": 8 * 48000 * 3600,  # channels x frames in all: an hour of 7.1 film sound at 48 kHz (11 GB as float64)
 }

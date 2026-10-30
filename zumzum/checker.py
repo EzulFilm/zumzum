@@ -177,6 +177,10 @@ def check(src, duration=None, sr=None):
     prog = L.parse(src)
     ctx = _Ctx(duration, sr)
     out = Checked()
+    if sr is not None and not LIMITS["sr_min"] <= sr <= LIMITS["sr_max"]:  # also refuses NaN
+        ctx.err(1, f"the audio's sample rate {sr} Hz is outside {LIMITS['sr_min']}..{LIMITS['sr_max']} Hz")
+    if duration is not None and not 0 <= duration <= LIMITS["duration_s"]:  # also refuses NaN
+        ctx.err(1, f"the audio is {duration:g} s long; it must be 0..{LIMITS['duration_s']} s")
     if prog.version != VERSION:
         ctx.err(1, f"this checker reads zumzum {VERSION}, the program says {prog.version}")
     for word, line in prog.dup:

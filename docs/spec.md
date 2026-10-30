@@ -168,6 +168,11 @@ ear on a small listening set before any of them decides "done".
 
 ## 7. Limits
 
+Audio: sample rate 8-192 kHz, at most 8 channels, at most one hour, at most 8 x 48000 x 3600 samples in all (an hour
+of 7.1 sound at 48 kHz; so 8 channels at 192 kHz fit 15 minutes), finite samples only; anything else is refused when it
+is loaded, checked or rendered. The limits bound each array: rendering keeps one copy per layer plus STFT buffers, so
+peak memory is several times the input's size.
+
 Source <= 32 KiB; <= 32 sels, 32 nodes, 8 layers, 32 checks; <= 64 node uses over all layers (each node use is at most one
 STFT pass, or one declick of three passes); one selection expression <= 16 calls as written and <= 64 once named
 selections are expanded, nested <= 16 deep; names <= 40 characters; strings <= 400 characters; number literals <= 40

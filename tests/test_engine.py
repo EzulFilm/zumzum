@@ -234,3 +234,75 @@ def test_hum_drop_on_very_short_audio():
     outs, _ = render(prog, x, SR)
     res = run_checks(prog, np.atleast_2d(x), outs, SR)
     assert res[0]["value"] == 0.0 and not res[0]["pass"] and "not measurable" in res[0]["text"]
+
+
+def test_audio_limits_refuse_bad_input(tmp_path, monkeypatch):
+    """Absurd sample rates, too many channels, too long, too many samples in all, or non-finite samples are refused
+    before any work, wherever the audio comes in (load, check, render, the editing loop)."""
+    import soundfile as sf
+    from zumzum import llm
+    from zumzum.audio import load, validate
+    from zumzum.errors import CheckError
+    from zumzum.ops import LIMITS
+    for sr in (2147483647, float("nan"), 4000):
+        with pytest.raises(CheckError, match="sample rate"):
+            check("zumzum 0.1\nlayer main = pass\n", sr=sr)
+    for d in (4000, -1, float("nan")):
+        with pytest.raises(CheckError, match="s long"):
+            check("zumzum 0.1\nlayer main = pass\n", duration=d)
+    check("zumzum 0.1\nlayer main = pass\n", duration=3600, sr=8000)
+    check("zumzum 0.1\nlayer main = pass\n", duration=1, sr=192000)  # the limits themselves are allowed
+    x = speechlike(dur=0.5)
+    for bad, sr, msg in ((x, 2147483647, "sample rate"), (np.zeros((9, 100)), SR, "channels"),
+                         (np.array([0.0, np.inf]), SR, "non-finite"), (np.array([np.nan]), SR, "non-finite")):
+        with pytest.raises(ValueError, match=msg):
+            validate(bad, sr)
+    prog = check("zumzum 0.1\nnode g = gain(db: 0)\nlayer main = g\n")
+    with pytest.raises(ValueError, match="non-finite"):
+        render(prog, np.array([0.0, np.inf, 0.0]), SR)
+    with pytest.raises(ValueError, match="sample rate"):
+        render(prog, x, 2147483647)
+    with pytest.raises(ValueError, match="sample rate"):  # the loop refuses before the model sees anything
+        llm.edit_loop("less hiss", x, 2147483647, provider=None)
+    sf.write(tmp_path / "ok.wav", x, SR)
+    assert load(tmp_path / "ok.wav")[1] == SR
+    sf.write(tmp_path / "slow.wav", x[:4000], 4000)  # below 8 kHz
+    with pytest.raises(ValueError, match="sample rate"):
+        load(tmp_path / "slow.wav")
+    sf.write(tmp_path / "nine.wav", np.zeros((100, 9)), SR)
+    with pytest.raises(ValueError, match="channels"):
+        load(tmp_path / "nine.wav")
+    monkeypatch.setitem(LIMITS, "duration_s", 0.25)  # a long file, without writing an hour of audio
+    with pytest.raises(ValueError, match="at most 0.25 s"):
+        load(tmp_path / "ok.wav")
+    with pytest.raises(ValueError, match="at most 0.25 s"):  # also when a length is asked for, before reading
+        load(tmp_path / "ok.wav", dur_s=1e9)
+    assert load(tmp_path / "ok.wav", start_s=0.3, dur_s=0.1)[0].shape[1] == int(0.1 * SR)
+    monkeypatch.setitem(LIMITS, "duration_s", 3600)
+    monkeypatch.setitem(LIMITS, "samples", 1000)  # the total budget, across channels
+    sf.write(tmp_path / "wide.wav", np.zeros((600, 2)), SR)
+    with pytest.raises(ValueError, match="samples in all"):
+        load(tmp_path / "wide.wav")
+
+
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_convert_reads_local_audio_but_not_playlists(tmp_path):
+    import subprocess
+    import soundfile as sf
+    from tools.convert import local, probe
+    sf.write(tmp_path / "in.wav", speechlike(dur=0.5), SR)
+    plain = lambda src: subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-f", "null", "-"],
+                                       capture_output=True, text=True)
+    guarded = lambda src: subprocess.run(["ffmpeg", "-v", "error", "-y", *local(src), "-f", "null", "-"],
+                                         capture_output=True, text=True)
+    assert guarded(tmp_path / "in.wav").returncode == 0
+    most, sr, ch = probe(tmp_path / "in.wav")
+    assert 0.5 < most <= 3601 and (sr, ch) == (SR, 1)
+    # a valid playlist of one MPEG-TS segment: plain ffmpeg plays it (the control), the guarded input refuses it
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(tmp_path / "in.wav"), "-c:a", "aac", "-f", "mpegts",
+                    str(tmp_path / "seg.ts")], check=True)
+    (tmp_path / "list.m3u8").write_text("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXTINF:0.5,\n"
+                                        "seg.ts\n#EXT-X-ENDLIST\n")
+    assert plain(tmp_path / "list.m3u8").returncode == 0
+    r = guarded(tmp_path / "list.m3u8")
+    assert r.returncode != 0 and "whitelist" in r.stderr, r.stderr
