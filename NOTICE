@@ -3,7 +3,7 @@ Copyright 2026 CIERRAEZUL LLC.
 
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
-"Zumzum" is a name used by Ezul and is not licensed under the Apache License.
+"Zumzum" is a name used by Ezul and is not licensed under the Apache License; see README.md.
 
 Zumzum uses, without bundling them:
 - NumPy (BSD-3-Clause) and SciPy (BSD-3-Clause);

@@ -181,3 +181,9 @@ GitHub Actions with Python 3.12 and 3.13. A change to the language goes into [do
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The example recordings are not part of this repository;
 their own licences are listed in [examples/sources.json](examples/sources.json).
+
+## Name
+
+"Zumzum" is the name of this project. The Apache License 2.0 does not give permission to use this name (see section
+6 of the license), except to say truthfully where the software comes from. If you publish a changed version, please
+give it a different name, so that people can tell it apart from this one.
