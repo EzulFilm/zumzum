@@ -306,3 +306,28 @@ def test_convert_reads_local_audio_but_not_playlists(tmp_path):
     assert plain(tmp_path / "list.m3u8").returncode == 0
     r = guarded(tmp_path / "list.m3u8")
     assert r.returncode != 0 and "whitelist" in r.stderr, r.stderr
+
+
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_convert_refuses_an_existing_output_unless_asked(tmp_path):
+    import soundfile as sf
+    from tools.convert import run
+    sf.write(tmp_path / "in.wav", speechlike(dur=0.5), SR)
+    (tmp_path / "p.zz").write_text('zumzum 0.1\nname "p"\nnode g = gain(db: -3)\nlayer main = g\n')
+    out = tmp_path / "out.wav"
+    out.write_bytes(b"keep")
+    with pytest.raises(SystemExit, match="--overwrite"):
+        run(tmp_path / "p.zz", tmp_path / "in.wav", out)
+    assert out.read_bytes() == b"keep"
+    with pytest.raises(SystemExit, match="different file"):
+        run(tmp_path / "p.zz", tmp_path / "in.wav", tmp_path / "in.wav", overwrite=True)
+    run(tmp_path / "p.zz", tmp_path / "in.wav", out, overwrite=True)
+    assert out.read_bytes() != b"keep" and out.with_suffix(".json").exists()
+    with pytest.raises(SystemExit, match="exists"):  # the .json left by the first run also counts
+        out.unlink()
+        run(tmp_path / "p.zz", tmp_path / "in.wav", out)
+    png = tmp_path / "sheet.png"  # and so does an existing sheet
+    png.write_bytes(b"keep")
+    with pytest.raises(SystemExit, match="--overwrite"):
+        run(tmp_path / "p.zz", tmp_path / "in.wav", tmp_path / "new.wav", sheet_path=png)
+    assert png.read_bytes() == b"keep" and not (tmp_path / "new.wav").exists()

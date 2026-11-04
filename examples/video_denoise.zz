@@ -7,10 +7,9 @@ sel pause = time(t_s: 87.0..87.9)         # another pause, used only to measure
 sel rumble = band(f_hz: 0..70, feather_hz: 20)
 sel words = band(f_hz: 300..3000)
 
-node level = gain(db: -3)                 # the decoded sound peaks above full scale: make room first
-node d = denoise(mode: mmse, profile_t_s: 101.5..102.5, reduce_db: 15)
+node d = denoise(mode: mmse, profile_t_s: 101.5..102.5, reduce_db: 12)   # 15 took the words' treble down too
 node low = gain(db: -12) at rumble
-layer main = level -> d -> low
+layer main = d -> low
 
 check hiss_down = drop(at: pause, min_db: 8)
 check words_kept = keep(at: words, tol_db: 6)

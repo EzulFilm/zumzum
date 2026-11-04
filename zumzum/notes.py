@@ -17,6 +17,16 @@ def _w(pattern, n):
     return re.search(r"\b(?:" + pattern + r")\b", n) is not None
 
 
+def _amount(pattern, n, amount):
+    """The dB amount for one goal: the note's only amount, or, when the note gives several ("hum by 12 dB and hiss
+    by 6 dB"), the one in the goal word's own clause (up to the next "and", comma or semicolon), else None."""
+    if len(AMOUNT.findall(n)) <= 1:
+        return amount
+    m = re.search(r"\b(?:" + pattern + r")\b", n)
+    m = AMOUNT.search(re.split(r"\band\b|[,;]", n[m.end():], maxsplit=1)[0]) if m else None
+    return float(m.group(1)) if m else None
+
+
 def note_goals(note, analysis):
     """-> (sel lines, check lines, goals). Each goal is {"goal", "status": "measured" | "unmeasurable", "checks",
     "why"}; every generated name is prefixed `note_` (a model's names cannot collide: see `merge`)."""
@@ -32,14 +42,16 @@ def note_goals(note, analysis):
     if _w(r"hum|buzz|mains|60 ?hz|50 ?hz", n):
         h = analysis.get("hum") or {}
         f0 = 60.0 if re.search(r"\b60 ?hz\b", n) else 50.0 if re.search(r"\b50 ?hz\b", n) else round(h.get("f0_hz", 60.0))
-        need = amount if amount is not None and _w(r"by|down|reduce|lower", n) else 20
+        hum = _amount(r"hum|buzz|mains|60 ?hz|50 ?hz", n, amount)
+        need = hum if hum is not None and _w(r"by|down|reduce|lower", n) else 20
         goal("hum", [f"check note_hum = hum_drop(f0_hz: {f0:g}, harmonics: 10, min_db: {need:g})"],
              f"hum at {f0:g} Hz down at least {need:g} dB")
     if _w(r"hiss|noise|noisy|denoise", n):
         if analysis.get("quiet_spans_s"):
             a, b = analysis["quiet_spans_s"][0]
             sels.append(f"sel note_sel_quiet = time(t_s: {a:g}..{b:g})")
-            need = amount if amount is not None else 6
+            hiss = _amount(r"hiss|noise|noisy|denoise", n, amount)
+            need = hiss if hiss is not None else 6
             goal("noise", [f"check note_hiss = drop(at: note_sel_quiet, min_db: {need:g})"],
                  f"noise in the quiet span {a:g}..{b:g} s down at least {need:g} dB")
         else:
@@ -49,10 +61,11 @@ def note_goals(note, analysis):
              "at most a third of the clicks left")
     if _w(r"drums?|percussion", n) and _w(r"down|quieter|lower|less|too loud|reduce", n):
         sels.append("sel note_sel_cymbals = band(f_hz: 5000..16000)")
-        if amount is not None:
-            tol = max(2.0, round(0.25 * amount, 1))
-            goal("drums", [f"check note_drums = change(at: note_sel_cymbals, target_db: {-amount:g}, tol_db: {tol:g})"],
-                 f"drums (cymbal band) {-amount:g} dB +- {tol:g}")
+        drums = _amount(r"drums?|percussion", n, amount)
+        if drums is not None:
+            tol = max(2.0, round(0.25 * drums, 1))
+            goal("drums", [f"check note_drums = change(at: note_sel_cymbals, target_db: {-drums:g}, tol_db: {tol:g})"],
+                 f"drums (cymbal band) {-drums:g} dB +- {tol:g}")
         else:
             goal("drums", ["check note_drums = drop(at: note_sel_cymbals, min_db: 6)"], "drums down at least 6 dB")
     if _w(r"tones?|beeps?|ring|rings|ringing|dial|dials|dialling|dialing|whistles?|squeals?", n):

@@ -96,6 +96,8 @@ def main(names):
             source += f"; scaled by {20 * np.log10(g):.2f} dB to keep the peak under full scale"
             if "truth" in view:
                 view["truth"] = tuple(t * g for t in view["truth"])
+            if "added" in view:  # so x - added stays the clean recording
+                view["added"] = view["added"] * g
         src = (ROOT / "examples" / f"{name}.zz").read_text(encoding="utf-8")
         prog = check(src, duration=x.shape[1] / sr, sr=sr)
         outs, info = render(prog, x, sr)

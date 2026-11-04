@@ -1,7 +1,8 @@
 """Run a Zumzum program on a media file: mp3 in, mp3 out (or wav, flac, m4a; a video keeps its picture untouched).
 
-    python tools/convert.py program.zz input.mp3 output.mp3 [--sheet sheet.png]
+    python tools/convert.py program.zz input.mp3 output.mp3 [--sheet sheet.png] [--overwrite]
 
+An existing output (its .json or the sheet) is refused unless --overwrite is given; the input is never overwritten.
 ffmpeg (on PATH, not bundled) decodes the sound to 32-bit float WAV at its own rate and channels. Zumzum checks the
 program against that sound's length and rate, renders it, and measures its checks and the damage gate. ffmpeg then
 encodes the output by its extension: .mp3 as MP3 (LAME, 192 kb/s), .m4a as AAC 192 kb/s, .flac as FLAC, .wav as
@@ -32,8 +33,9 @@ VIDEO = (".mp4", ".mov", ".mkv")
 FORMATS = "wav,flac,mp3,ogg,mov,mp4,matroska,webm,aac"  # input demuxers ffmpeg may use
 
 
-def ffmpeg(*args):
-    subprocess.run(["ffmpeg", "-v", "error", "-y", *args], check=True)
+def ffmpeg(*args, replace=True):
+    """replace=False adds -n: ffmpeg fails rather than overwrite a file that appeared after run() checked."""
+    subprocess.run(["ffmpeg", "-v", "error", "-y" if replace else "-n", *args], check=True)
 
 
 def local(path):
@@ -69,11 +71,18 @@ def probe(src):
     return min(LIMITS["duration_s"], LIMITS["samples"] / (ch * sr)) + 1, sr, ch
 
 
-def run(program, src, dst, sheet_path=None, title=None):
+def run(program, src, dst, sheet_path=None, title=None, overwrite=False):
     src, dst = Path(src), Path(dst)
     ext = dst.suffix.lower()
     if ext not in AUDIO and ext not in VIDEO:
         raise SystemExit(f"unknown output type {ext} (audio: {', '.join(AUDIO)}; video: {', '.join(VIDEO)})")
+    if dst.resolve() == src.resolve():
+        raise SystemExit(f"{dst}: the output must be a different file from the input")
+    if not overwrite:
+        outputs = (dst, dst.with_suffix(".json"), *((Path(sheet_path),) if sheet_path else ()))
+        for p in outputs:
+            if p.exists():
+                raise SystemExit(f"{p} exists; pass --overwrite to replace it")
     with tempfile.TemporaryDirectory() as tmp:
         wav_in, wav_out = Path(tmp) / "in.wav", Path(tmp) / "out.wav"
         most, sr0, ch0 = probe(src)  # the decode is bounded by the limits even if the header lied about its length
@@ -88,9 +97,9 @@ def run(program, src, dst, sheet_path=None, title=None):
         save(wav_out, y, sr)
         if ext in VIDEO:
             ffmpeg(*local(src), *local(wav_out), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
-                   "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(dst))
+                   "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(dst), replace=overwrite)
         else:
-            ffmpeg(*local(wav_out), *AUDIO[ext], str(dst))
+            ffmpeg(*local(wav_out), *AUDIO[ext], str(dst), replace=overwrite)
     if sheet_path:
         from zumzum.sheets import sheet
         sheet(sheet_path, x, y, sr, title or prog.name, res, str(program), fmax=8000)
@@ -107,8 +116,9 @@ def main():
     ap.add_argument("input")
     ap.add_argument("output")
     ap.add_argument("--sheet")
+    ap.add_argument("--overwrite", action="store_true", help="replace an existing output, its .json and sheet")
     a = ap.parse_args()
-    r, *_ = run(a.program, a.input, a.output, a.sheet)
+    r, *_ = run(a.program, a.input, a.output, a.sheet, overwrite=a.overwrite)
     for c in r["checks"]:
         print(f"{'PASS' if c['pass'] else 'FAIL'} {c['name']}: {c['text']}")
     for d in r["damage"]:

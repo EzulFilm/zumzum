@@ -64,6 +64,8 @@ def language_reference():
     return "\n".join(out)
 
 
+MAX_REPLY = 16 * 1024 * 1024  # bytes read from the model server per reply
+
 EXAMPLE = """```zumzum
 zumzum 0.1
 name "Hum under a voice"
@@ -109,7 +111,10 @@ class OpenWeightProvider:
                                      headers={"Content-Type": "application/json"})
         t0 = time.monotonic()
         with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            data = json.loads(r.read())
+            body = r.read(MAX_REPLY + 1)  # the endpoint is trusted for content, not for size
+        if len(body) > MAX_REPLY:
+            raise ValueError(f"the model server's reply is over {MAX_REPLY} bytes")
+        data = json.loads(body)
         u = data.get("usage") or {}
         self.last_usage = {"model": data.get("model") or self.model, "input_tokens": u.get("prompt_tokens", 0),
                            "output_tokens": u.get("completion_tokens", 0),
@@ -122,7 +127,7 @@ class RulesProvider:
     last_usage = {"model": "rules"}
 
     def complete(self, system, user):
-        note = re.search(r"Note: (.*)", user).group(1).lower()
+        note = re.search(r"Note: (.*?)\nAnalysis: ", user, re.S).group(1).lower()  # a note may span lines
         a = json.loads(re.search(r"Analysis JSON: (.*)", user).group(1))
         ops = []
         if "hum" in note or "buzz" in note:

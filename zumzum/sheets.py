@@ -80,7 +80,8 @@ def sheet(path, before, after, sr, title, checks, program_name, fmax=8000, zoom=
         ax.plot(ts[sl], b.mean(axis=0)[sl], color="#7a808c", lw=0.6, label="before")
         ax.plot(ts[sl], a.mean(axis=0)[sl], color="#4fc3f7", lw=0.6, alpha=0.9, label="after")
         ax.set_xlim(t0, t1)
-        lim = max(1e-3, np.abs(b.mean(axis=0)[sl]).max()) * 1.05
+        # both waveforms fit: an after made louder (gain, loudness) must not run off the plot
+        lim = max([1e-3] + [np.abs(w).max() for w in (b.mean(axis=0)[sl], a.mean(axis=0)[sl]) if w.size]) * 1.05
         ax.set_ylim(-lim, lim)
         ax.set_yticks([])
         ax.set_title("waveform: before (grey), after (blue)" + ("" if j == 0 else "  [zoom]"), fontsize=10, loc="left",

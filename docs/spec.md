@@ -161,8 +161,8 @@ louder than the input, or an output more than 40 dB quieter (near silence) than 
 however quiet. A damaged version can never end the loop as done, whatever its checks say.
 
 Planned (not in 0.1): perceptual checks that follow the three questions listeners are asked about noise reduction
-(how much the speech was damaged, how intrusive the remaining noise is, overall quality), using measures with clean
-licences (no-reference speech quality estimators, ViSQOL, STOI / ESTOI, SI-SDR, HAAQI for music); onset-sharpness and pre-onset energy checks for
+(how much the speech was damaged, how intrusive the remaining noise is, overall quality), using measures such as
+no-reference speech quality estimators, ViSQOL, SI-SDR and HAAQI for music; onset-sharpness and pre-onset energy checks for
 smearing and pre-echo; a validated replacement for the experimental `musical_noise`. Thresholds will be calibrated by
 ear on a small listening set before any of them decides "done".
 

@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "examples" / "sources.json"
 CACHE = ROOT / "cache" / "audio"
+MAX_BYTES = 100 * 1024 * 1024
 UA = "Zumzum/0.1 (example audio fetch; mail@ezul.ai)"
 
 
@@ -39,7 +40,10 @@ def fetch(pin=False):
         if not p.exists():
             req = urllib.request.Request(e["url"], headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=120) as r:
-                p.write_bytes(r.read())
+                body = r.read(MAX_BYTES + 1)  # the examples are a few MB; never hold an endless reply
+            if len(body) > MAX_BYTES:
+                raise SystemExit(f"{key}: more than {MAX_BYTES} bytes; not saved")
+            p.write_bytes(body)
             print(f"downloaded {key} ({p.stat().st_size} bytes)")
         h = sha256(p)
         if not e["sha256"]:
