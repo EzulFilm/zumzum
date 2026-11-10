@@ -7,8 +7,9 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 - We added `loudness`: one gain that brings a layer to a loudness target, capped by a true-peak ceiling. It does not
   limit or compress. New checks: `loudness`, `true_peak`, `loudness_range`, `rms`, `noise_floor`.
 - We added `tools/fix.py --spec` and `tools/batch.py`: bring a file, or a folder, to the published delivery targets
-  of Apple Podcasts, ACX, EBU R 128 or ATSC A/85, and measure the delivered file. A file that would need limiting
-  is reported, not fixed.
+  of Apple Podcasts, ACX, EBU R 128 or ATSC A/85, and measure the delivered file (targets from their published
+  specifications; not affiliated with or endorsed by Apple, Audible (ACX), the EBU or ATSC). A file that would need
+  limiting is reported, not fixed.
 - We added the repair record: every output carries the program, the check results and hashes of the source and the
   result, inside the file and beside it. `tools/verify.py` checks it and can run the program again.
 - We added `attenuate`, which can only turn parts of a recording down, and the `attenuated` check that measures it.
