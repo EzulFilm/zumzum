@@ -137,7 +137,12 @@ to three times. The exit code is 0 only when the delivered file meets the target
 
 ![Level and true peak of 40 delivered files against four sets of delivery targets](docs/img/readme_fix_spec.png)
 
-FIX_SPEC_RESULT
+On 10 public recordings per set (`python tools/spec_run.py`), 26 of 40 delivered files met their targets: all 10
+for EBU R 128, all 10 for ATSC A/85, 5 of 10 for Apple Podcasts and 1 of 10 for ACX. Every delivered file stayed
+under its true-peak limit. The 14 that missed are the louder targets on speech with high peaks: all 14 needed
+limiting (they ended 1 to 18 dB short of the target with one gain), and one of them also had a noise floor over
+ACX's limit. The recordings, their authors and licences are listed in
+[examples/spec_sources.json](examples/spec_sources.json).
 
 Three things to know. Results are measured against each specification's published numbers; this is not a
 certification, and the platforms run their own checks. `fix` changes the level only: a noisy recording keeps its

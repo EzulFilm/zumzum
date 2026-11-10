@@ -93,7 +93,7 @@ def main(specs, jobs=8):
         print(f"{sp}: {sum(r['pass'] for r in rows)} / {len(rows)} PASS")
         for r in rows:
             if not r["pass"]:
-                print("   FAIL", r["input"], r.get("error") or {k: v for k, v in r["versions"][-1]["verdict"]["test"].items()},
+                print("   FAIL", r["input"], r.get("error") or r.get("warnings") or r["versions"][-1]["verdict"]["rule"],
                       r.get("versions", [{}])[-1].get("damage"))
 
 
