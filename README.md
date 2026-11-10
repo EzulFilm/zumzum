@@ -77,7 +77,9 @@ folder gets `before.wav`, `after.wav`, `removed.wav` (what the edit took out), `
 ![The sheet Zumzum writes for the hum example: waveform, spectrograms before and after, a map of what changed, and the three checks](docs/img/readme_sheet.png)
 
 This is the sheet for `hum_voice`. The bright horizontal lines in the top spectrogram are the hum; they are gone in
-the second one. The bottom map shows in blue what was removed, and the three lines under it are the checks.
+the second one. The bottom map shows in blue what was removed, and the three lines under it are the checks. The hum
+check passes in either of two ways: the hum fell by the amount asked for (30 dB here), or it no longer stands above
+the sound around it. Here it fell 25 dB and passed the second way.
 
 ## Your own file
 
