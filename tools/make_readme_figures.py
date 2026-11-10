@@ -17,10 +17,9 @@ matplotlib.use("Agg")
 import matplotlib.patches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
-from matplotlib.colors import PowerNorm  # noqa: E402
 
 from zumzum.audio import load  # noqa: E402
-from zumzum.sheets import BG, FG, _freq_axis, _spec, _style, pretty_panel, pretty_spec  # noqa: E402
+from zumzum.sheets import BG, FG, pretty_panel, pretty_spec  # noqa: E402
 
 OUT = ROOT / "out" / "examples"
 IMG = ROOT / "docs" / "img"
@@ -37,17 +36,10 @@ EXAMPLES = [  # folder, before, after, title, program
 
 
 def spec(path, t1=None):
+    """The sheets.py display view: multi-resolution, log-frequency grid (30 Hz - 8 kHz)."""
     x, sr = load(path, 0, t1)
-    S, f, t = _spec(x, sr, size=2048, hop=256)
+    S, f, t = pretty_spec(x, sr)
     return S, f, t, sr
-
-
-def panel(ax, S, f, t, norm, title, fmax=8000):
-    _style(ax)
-    ax.pcolormesh(t, np.maximum(f, 1), S, cmap="inferno", norm=norm, shading="auto", rasterized=True)
-    _freq_axis(ax, 30, fmax, True)
-    ax.set_xlim(t[0], t[-1])
-    ax.set_title(title, fontsize=11, loc="left", color=FG)
 
 
 # token colours for the program panel (our own palette)
@@ -150,12 +142,12 @@ def examples_figure():
         Sb, f, t, _ = spec(OUT / name / b, 20)
         Sa, _, _, _ = spec(OUT / name / a, 20)
         top = np.percentile(Sb, 99.9)
-        norm = PowerNorm(gamma=1 / 0.7, vmin=top - 90, vmax=top, clip=True)
-        panel(axes[i][0], Sb, f, t, norm, f"{title}  (before)")
-        panel(axes[i][1], Sa, f, t, norm, f"after: examples/{prog}")
+        pretty_panel(axes[i][0], Sb, f, t, top, f"{title}  (before)")
+        pretty_panel(axes[i][1], Sa, f, t, top, f"after: examples/{prog}")
+        axes[i][0].set_ylabel("Hz", color="#9aa0ac")
     for ax in axes[-1]:
-        ax.set_xlabel("time (s)")
-    fig.suptitle("Before | after, every example (log frequency from 30 Hz, 90 dB range)", color=FG, fontsize=15,
+        ax.set_xlabel("time (s)", color="#9aa0ac")
+    fig.suptitle("Before | after, every example (log frequency from 30 Hz, 80 dB range)", color=FG, fontsize=15,
                  x=0.04, ha="left")
     fig.subplots_adjust(left=0.05, right=0.99, top=0.95, bottom=0.04, hspace=0.45, wspace=0.08)
     fig.savefig(IMG / "readme_examples.png", dpi=80, facecolor=BG)

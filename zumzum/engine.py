@@ -1,6 +1,7 @@
 """The NumPy reference engine: the source of truth for what a checked program does (docs/spec.md section 5).
 
-Audio is float64 (channels, samples) in [-1, 1] full scale; channels are processed independently. Each layer runs its
+Audio is float64 (channels, samples) in [-1, 1] full scale; channels are processed independently, except by the
+whole-layer nodes (loudness, attenuate), which see all channels at once. Each layer runs its
 node chain on the input. An STFT op computes its result Y on the op's own grid and blends it into the current signal
 inside its selection:  Z = X + mix * M * (Y - X),  then ISTFT. A time op blends per sample with the selection's time
 weight. Without `at`, M = 1 everywhere.
@@ -11,6 +12,7 @@ import math
 import numpy as np
 from scipy import linalg, ndimage, special
 
+from . import loudness
 from .stft import bin_freqs, frame_times, istft, stft
 
 EPS = 1e-20
@@ -376,8 +378,62 @@ def op_declick(x, p, ctx):
     return y
 
 
+def op_loudness(a, p, ctx):
+    """Whole layer toward target_lufs integrated loudness (BS.1770-4 / EBU R 128) with one gain, capped so the true
+    peak stays at or under max_true_peak_dbtp. No limiter and no compression: when the peaks leave too little room,
+    the layer ends short of the target and `short_by_lu` says by how much."""
+    sr, info = ctx["sr"], ctx["info"]
+    lu = loudness.integrated(a, sr)
+    if lu is None:
+        info["note"] = "no loudness to measure (silent, or under 0.4 s): left as it was"
+        return a
+    want = p["target_lufs"] - lu
+    room = p["max_true_peak_dbtp"] - loudness.true_peak(a, sr)  # the most gain the ceiling allows
+    g = min(want, room)
+    y = a * 10 ** (g / 20)
+    out = loudness.integrated(y, sr)
+    info.update({"lufs_before": round(lu, 2), "gain_db": round(g, 2), "short_by_lu": round(max(0.0, want - g), 2),
+                 "lufs": None if out is None else round(out, 2), "true_peak_dbtp": round(loudness.true_peak(y, sr), 2)})
+    return y
+
+
+PROJECTION_ROUNDS = 50  # a constant, never tuned per file
+
+
+def op_attenuate(a, p, ctx):
+    """Attenuate only: the estimate layer S (an earlier layer, e.g. a denoise of the input) only chooses how much of
+    each time-frequency cell of this layer's input X to keep: G = min(1, |S| / |X|), the plain clamp per cell (no
+    reshaping, exponent or smoothing of G), applied to X. Nothing S added reaches the output. Overlap-add then smears
+    a little energy from loud cells into quiet ones, so the output is projected back PROJECTION_ROUNDS times:
+    re-analysed, every cell over the input's |X| scaled down to it, resynthesised (alternating projection, Griffin &
+    Lim 1984). The phase can shift slightly in the cells the rounds touch."""
+    est = ctx["layers"][p["est"]]
+    if est.shape != a.shape:
+        raise ValueError(f"attenuate: the estimate layer {p['est']} has shape {est.shape}, this layer {a.shape} "
+                         "(the same length and channels are needed)")
+    size, hop = ctx["size"], ctx["hop"]
+    out, kept, cells, gmax = [], 0.0, 0.0, 0.0
+    for x, e in zip(a, est):
+        X, E = stft(x, size, hop), stft(e, size, hop)
+        mag = np.abs(X)
+        G = np.where(mag > 0, np.minimum(1.0, np.abs(E) / np.maximum(mag, 1e-30)), 0.0)
+        y = istft(G * X, size, hop, len(x))
+        for _ in range(PROJECTION_ROUNDS):  # fixed rounds; the ceiling is always the input's |X|; S is used once
+            Z = stft(y, size, hop)
+            A = np.abs(Z)
+            y = istft(Z * np.where(A > mag, mag / np.maximum(A, 1e-30), 1.0), size, hop, len(x))
+        out.append(y)
+        kept += float((G ** 2 * mag ** 2).sum())
+        cells += float((mag ** 2).sum())
+        gmax = max(gmax, float(G.max()))
+    ctx["info"].update({"kept_db": round(10 * math.log10(max(kept, 1e-30) / max(cells, 1e-30)), 2),
+                        "max_gain": round(gmax, 6)})  # <= 1 in every cell, by construction
+    return np.stack(out)
+
+
 STFT_OPS = {"gain": op_gain, "dehum": op_dehum, "denoise": op_denoise, "heal": op_heal, "split_hp": op_split_hp}
 TIME_OPS = {"declick": op_declick}
+JOINT_OPS = {"loudness": op_loudness, "attenuate": op_attenuate}  # all channels at once, the whole layer
 
 
 # ---------------------------------------------------------------------------------------------------- render
@@ -420,7 +476,13 @@ def render(prog, audio, sr):
             if prog.ops[oname]["off"]:
                 inf["off"] = True
                 continue
-            y = np.stack([apply_op(prog.ops[oname], ch, sr, prog, inf) for ch in y])
+            op = prog.ops[oname]
+            if op["op"] in JOINT_OPS:  # whole layer: x + mix * (y - x), as for any node
+                z = JOINT_OPS[op["op"]](y, op["params"], {"sr": sr, "info": inf, "layers": out, "size": prog.size,
+                                                          "hop": prog.hop})
+                y = z if op["mix"] == 1 else y + op["mix"] * (z - y)  # mix 1 stays bit-exact
+            else:
+                y = np.stack([apply_op(op, ch, sr, prog, inf) for ch in y])
         out[lname] = y
     if prog.output == "mix":
         out["mix"] = sum(10 ** (g / 20) * out[k] for k, g in prog.output_mix.items())

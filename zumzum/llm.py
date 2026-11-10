@@ -35,6 +35,8 @@ def _param_text(key, p):
         shape = f"lo..hi in [{lo:g}, {hi:g}]"
     elif kind == "sel":
         shape = "a sel name"
+    elif kind == "layer":
+        shape = "a layer name (written above)"
     else:
         shape = f"{'int' if kind == 'int' else 'num'} {lo:g}..{hi:g}"
     d = " required" if default is None else " optional" if default == OPTIONAL else f" ={default}"
@@ -268,7 +270,7 @@ def edit_loop(note, audio, sr, provider, max_iters=3, log=print):
             continue
         outs, info = render(prog, audio, sr)
         res = run_checks(prog, np.atleast_2d(audio), outs, sr)
-        dmg = damage(audio, outs[prog.output])
+        dmg = damage(audio, outs[prog.output], prog, sr)
         v.update({"checks": [{k: (bool(x) if k == "pass" else float(x) if k == "value" else x)
                               for k, x in r.items()} for r in res], "damage": dmg, "info": info,
                   "output": outs[prog.output]})

@@ -7,6 +7,7 @@ line a person (or a model) can act on.
 import numpy as np
 from scipy import ndimage, signal
 
+from . import loudness
 from .engine import detect_clicks, sel_mask
 from .stft import bin_freqs, frame_times, stft
 
@@ -79,6 +80,59 @@ def _per_bin(P, M):
     return np.concatenate(rows) if rows else np.zeros(0)
 
 
+def attenuated_excess(before, after, size, hop, floor_db=-40.0):
+    """(largest dB by which a cell of after's STFT exceeds the same cell of before's, among cells within floor_db of
+    the loudest; the share of those cells over +0.1 dB; how many were compared; the energy by which all cells exceed
+    the input, dB of after's energy)."""
+    from .stft import stft
+    b, a = np.atleast_2d(before), np.atleast_2d(after)
+    worst, over, n, ex, tot = None, 0, 0, 0.0, 0.0
+    for x, y in zip(b, a):
+        X, Y = np.abs(stft(x, size, hop)) ** 2, np.abs(stft(y[:len(x)], size, hop)) ** 2
+        ex += float(np.maximum(Y - X, 0).sum())
+        tot += float(Y.sum())
+        top = X.max()
+        if top <= 0:
+            continue
+        use = X > top * 10 ** (floor_db / 10)
+        r = 10 * np.log10(np.maximum(Y[use], 1e-300) / X[use])
+        if r.size:
+            worst = float(r.max()) if worst is None else max(worst, float(r.max()))
+            over += int((r > 0.1).sum())
+            n += int(r.size)
+    return worst, (over / n if n else 0.0), n, _db(ex / max(tot, 1e-30))
+
+
+def rms_dbfs(x):
+    """RMS of every sample of the louder channel, dBFS (a full-scale sine reads -3.0)."""
+    x = np.atleast_2d(x)
+    return float(max(_db(np.mean(c ** 2)) for c in x))
+
+
+def noise_floor_dbfs(x, sr, window_ms=500.0):
+    """The quietest window_ms span (100 ms steps) that is not digital silence: RMS of the louder channel, dBFS.
+    None when every span is digitally silent or the layer is shorter than one span."""
+    x = np.atleast_2d(x)
+    w, step = int(window_ms / 1000 * sr), max(1, int(0.1 * sr))
+    if w < 1 or x.shape[1] < w:
+        return None
+    c = np.concatenate([np.zeros((x.shape[0], 1)), np.cumsum(x ** 2, axis=1)], axis=1)
+    starts = np.arange(0, x.shape[1] - w + 1, step)
+    ms = ((c[:, starts + w] - c[:, starts]) / w).max(axis=0)
+    ms = ms[ms > 10 ** (-120 / 10)]  # digital silence (a pad, a fade to zero) is not a noise floor
+    return float(_db(ms.min())) if ms.size else None
+
+
+def _hum_text(what, v, min_db, gone):
+    """hum_drop passes in either of two ways; the text says which, so a pass never reads as under its threshold."""
+    if v >= min_db:
+        return f"{what} went down {v:.1f} dB (needed >= {min_db:g} dB)"
+    if gone:
+        return (f"{what} is no longer above the neighbouring bins, which passes; it went down {v:.1f} dB "
+                f"(the other way to pass: >= {min_db:g} dB)")
+    return f"{what} went down {v:.1f} dB and still stands above the neighbouring bins (needed >= {min_db:g} dB, or gone)"
+
+
 def run_checks(prog, before, outputs, sr):
     results = []
     size, hop = prog.size, prog.hop
@@ -136,10 +190,8 @@ def run_checks(prog, before, outputs, sr):
             _, ea, fa = hum_excess(after, sr, f0, p["harmonics"], search=0)
             v = min(120.0, _db(eb) - _db(ea)) if eb > 0 else 0.0
             gone = ea < 0.1 * fa
-            r.update({"pass": v >= p["min_db"] or gone, "value": round(v, 2),
-                      "text": f"hum at {f0:.2f} Hz x{p['harmonics']} went down {v:.1f} dB"
-                              + (" and is no longer above the neighbouring bins" if gone else "")
-                              + f" (needed >= {p['min_db']:g} dB)"})
+            r.update({"pass": v >= p["min_db"] or gone, "value": round(v, 2), "text": _hum_text(
+                f"hum at {f0:.2f} Hz x{p['harmonics']}", v, p["min_db"], gone)})
         elif kind == "clicks":
             nb = sum(len(detect_clicks(ch, sr, p["sensitivity"])) for ch in np.atleast_2d(before))
             na = sum(len(detect_clicks(ch, sr, p["sensitivity"])) for ch in np.atleast_2d(after))
@@ -160,12 +212,60 @@ def run_checks(prog, before, outputs, sr):
             v = _db(np.max(np.abs(after)) ** 2)
             r.update({"pass": v <= p["max_dbfs"], "value": round(v, 2),
                       "text": f"peak {v:.2f} dBFS (allowed <= {p['max_dbfs']:g})"})
+        elif kind == "loudness":
+            v = loudness.integrated(after, sr)
+            if v is None:
+                r.update({"pass": False, "value": None, "valid": False,
+                          "text": "no loudness to measure (silent, or under 0.4 s)"})
+            else:
+                r.update({"pass": abs(v - p["target_lufs"]) <= p["tol_lu"], "value": round(v, 2),
+                          "text": f"integrated loudness {v:.1f} LUFS (wanted {p['target_lufs']:g} +- "
+                                  f"{p['tol_lu']:g} LU; was {loudness.integrated(before, sr) or float('-inf'):.1f})"})
+        elif kind == "loudness_range":
+            v, v0 = loudness.loudness_range(after, sr), loudness.loudness_range(before, sr)
+            if v is None:
+                r.update({"pass": False, "value": None, "valid": False,
+                          "text": "no loudness range to measure (silent, or under 3 s)"})
+            else:
+                r.update({"pass": v <= p["max_lu"], "value": round(v, 2),
+                          "text": f"loudness range {v:.1f} LU (allowed <= {p['max_lu']:g}"
+                                  + (f"; was {v0:.1f})" if v0 is not None else ")")})
+        elif kind == "rms":
+            v, v0 = rms_dbfs(after), rms_dbfs(before)
+            r.update({"pass": p["min_dbfs"] <= v <= p["max_dbfs"], "value": round(v, 2),
+                      "text": f"RMS {v:.1f} dBFS (allowed {p['min_dbfs']:g}..{p['max_dbfs']:g}; was {v0:.1f})"})
+        elif kind == "noise_floor":
+            v, v0 = noise_floor_dbfs(after, sr, p["window_ms"]), noise_floor_dbfs(before, sr, p["window_ms"])
+            if v is None:
+                r.update({"pass": False, "value": None, "valid": False,
+                          "text": f"no noise floor to measure (only digital silence, or under {p['window_ms']:g} ms)"})
+            else:
+                r.update({"pass": v <= p["max_dbfs"], "value": round(v, 2),
+                          "text": f"noise floor {v:.1f} dBFS RMS, quietest {p['window_ms']:g} ms (allowed <= "
+                                  f"{p['max_dbfs']:g}" + (f"; was {v0:.1f})" if v0 is not None else ")")})
+        elif kind == "true_peak":
+            v = loudness.true_peak(after, sr)
+            r.update({"pass": v <= p["max_dbtp"], "value": round(v, 2) if np.isfinite(v) else None,
+                      "text": f"true peak {v:.2f} dBTP (allowed <= {p['max_dbtp']:g})"})
+        elif kind == "attenuated":
+            v, share, n_cells, ex = attenuated_excess(before, after, size, hop, p["floor_db"])
+            if v is None:
+                r.update({"pass": False, "value": None, "valid": False, "text": "no cells to compare (silent input)"})
+            else:
+                r.update({"pass": v <= p["max_over_db"] and ex <= p["max_excess_db"], "value": round(v, 3),
+                          "excess_db": round(ex, 2),
+                          "text": f"largest excess of a cell over the input {v:+.2f} dB (cells within "
+                                  f"{-p['floor_db']:g} dB of the loudest; allowed <= {p['max_over_db']:g}), "
+                                  f"{100 * share:.3f} % of {n_cells} cells over +0.1 dB; total excess {ex:.1f} dB of "
+                                  f"the layer (allowed <= {p['max_excess_db']:g})"})
         results.append(r)
     return results
 
 
-def damage(before, after):
-    """Problems that make a version unfit to end the loop, whatever the checks say."""
+def damage(before, after, prog=None, sr=None):
+    """Problems that make a version unfit to end the loop, whatever the checks say. A program with a loudness node
+    asked for the level change: then "louder" means louder than its loudness target (+1 LU), not louder than the
+    input."""
     out = []
     a, b = np.atleast_2d(after), np.atleast_2d(before)
     if not np.all(np.isfinite(a)):
@@ -174,7 +274,15 @@ def damage(before, after):
     if pk > 1.0:
         out.append(f"clipping: peak {_db(pk ** 2):+.2f} dBFS")
     rb, ra = np.sqrt(np.mean(b ** 2)), np.sqrt(np.mean(a ** 2))
-    if ra > rb * 2:
+    feeds = set(prog.output_mix) if prog and prog.output == "mix" else {prog.output} if prog else set()
+    used = {n for l, chain in (prog.layers if prog else ()) if l in feeds for n in chain}
+    targets = [prog.ops[n]["params"]["target_lufs"] for n in used
+               if prog.ops[n]["op"] == "loudness" and not prog.ops[n]["off"]]
+    if targets:
+        lu = loudness.integrated(a, sr) if sr else None
+        if lu is not None and lu > max(targets) + 1:
+            out.append(f"output is {lu:.1f} LUFS, louder than the program's loudness target {max(targets):g}")
+    elif ra > rb * 2:
         out.append(f"output is {_db(ra ** 2) - _db(rb ** 2):.1f} dB louder than the input")
     if rb > 0 and ra < rb * 10 ** (-40 / 20):  # any input that has sound, however quiet
         out.append(f"output is {_db(rb ** 2) - _db(ra ** 2):.1f} dB quieter than the input (nearly silent)")

@@ -8,7 +8,8 @@ conditions on the result.
 This started with old recordings, like the 1888 wax cylinder below. I wanted each cleanup written down as a program
 I could read again later, with the result measured instead of judged by ear alone. Programs can also be written by
 simple keyword rules or by a local AI model; they go through the same checker as a hand-written one. So far it
-handles hum, hiss, clicks, short tones such as phone dialling, and turning drums down under other music.
+handles hum, hiss, clicks, short tones such as phone dialling, turning drums down under other music, and bringing a
+file to a delivery loudness.
 
 ![A Zumzum program beside the 1888 wax cylinder it cleans up, before and after](docs/img/readme_program.png)
 
@@ -16,7 +17,9 @@ The program on the left is [examples/cylinder_denoise.zz](examples/cylinder_deno
 one pause, and the hiss in another pause goes down about 23 dB while the band with the words changes by 0.4 dB.
 
 **Contents:** [A program](#a-program) · [Quick start](#quick-start) · [Your own file](#your-own-file) ·
-[The examples](#the-examples) · [Asking in words](#asking-in-words) · [Limits](#limits)
+[Delivery rules](#delivery-rules-fix---spec) · [The repair record](#the-repair-record) ·
+[Turning sound down only](#turning-sound-down-only) · [The examples](#the-examples) ·
+[Asking in words](#asking-in-words) · [Limits](#limits)
 
 ## A program
 
@@ -46,11 +49,14 @@ language: a program can't open files, loop, calculate or use randomness, and its
 checker validates every name, unit and range and reports each problem with its line number.
 
 The operations are `gain`, `dehum`, `denoise` (from a noise profile you point at with `profile_t_s`, or from the
-quietest frames), `declick` (its region can only be a time span), `heal` (fills a region from the sound around it)
-and `split_hp` (keeps the harmonic or the percussive part). The checks are `drop`, `change`, `keep`, `untouched`,
-`hum_drop`, `clicks`, `peak`, and `musical_noise`, which is experimental, not validated and not used by any
+quietest frames), `declick` (its region can only be a time span), `heal` (fills a region from the sound around it),
+`split_hp` (keeps the harmonic or the percussive part), `loudness` (one gain that brings the whole layer to a
+loudness target, capped by a true-peak ceiling) and `attenuate` (see [Turning sound down only](#turning-sound-down-only)). The checks are
+`drop`, `change`, `keep`, `untouched`, `hum_drop`, `clicks`, `peak`, `loudness`, `true_peak`, `loudness_range`,
+`rms`, `noise_floor`, `attenuated`, and `musical_noise`, which is experimental, not validated and not used by any
 example. A damage gate always runs as well: an output with non-finite samples, a peak above 0 dBFS, more than 6 dB
-louder than the input or more than 40 dB quieter never counts as done.
+louder than the input (or, with a `loudness` node, more than 1 LU over its target) or more than 40 dB quieter never
+counts as done.
 
 The full language is in [docs/spec.md](docs/spec.md), and [zumzum/ops.py](zumzum/ops.py) has every parameter with
 its range and default.
@@ -65,10 +71,10 @@ python -m venv venv && . venv/bin/activate
 pip install -r requirements.txt
 python -m pytest -q                       # no network, GPU or model needed
 python tools/fetch_audio.py               # seven recordings into cache/audio/, checked by SHA-256
-python tools/make_examples.py             # renders five examples into out/examples/ (a few minutes)
+python tools/make_examples.py             # renders six examples into out/examples/ (a few minutes)
 ```
 
-The tests should all pass in under a minute. `fetch_audio.py` needs a network connection the first time.
+The tests should all pass in a few minutes. `fetch_audio.py` needs a network connection the first time.
 `make_examples.py` prints each check as PASS or FAIL, and the first line of each example says `ALL PASS` when every
 check passed and the damage gate is clear. `python tools/make_examples.py hum_voice` renders just one. Each example
 folder gets `before.wav`, `after.wav`, `removed.wav` (what the edit took out), `results.json` with every check, and
@@ -79,7 +85,7 @@ folder gets `before.wav`, `after.wav`, `removed.wav` (what the edit took out), `
 This is the sheet for `hum_voice`. The bright horizontal lines in the top spectrogram are the hum; they are gone in
 the second one. The bottom map shows in blue what was removed, and the three lines under it are the checks. The hum
 check passes in either of two ways: the hum fell by the amount asked for (30 dB here), or it no longer stands above
-the sound around it. Here it fell 25 dB and passed the second way.
+the sound around it. Here it passed the second way, and the line says so.
 
 ## Your own file
 
@@ -105,6 +111,79 @@ python tools/convert.py examples/mp3_record.zz sandman_60s.mp3 sandman_clean.mp3
 Each example is tuned to its own recording. Before using one on another file, change its `time(...)`,
 `profile_t_s` and band values.
 
+## Delivery rules: `fix --spec`
+
+Podcast platforms, audiobook stores and broadcasters publish loudness targets, and files miss them every day.
+`tools/fix.py` brings a file to a named set of targets and measures the result:
+
+```
+python tools/fix.py --list
+python tools/fix.py --spec podcast-apple talk.wav out/      # or audiobook-acx, ebu-r128, atsc-a85
+python tools/batch.py --spec ebu-r128 programmes/ out/      # every audio file in a folder
+```
+
+| name | targets, from the published specification | delivered as |
+|---|---|---|
+| `podcast-apple` | about -16 LKFS, true peak at most -1 dBFS (Apple Podcasts audio requirements) | MP3 |
+| `audiobook-acx` | RMS between -23 and -18 dB, peaks under -3 dB, noise floor at most -60 dB RMS (ACX audio submission requirements) | MP3, 192 kb/s, 44.1 kHz |
+| `ebu-r128` | -23.0 LUFS ±0.5 LU, true peak at most -1 dBTP (EBU R 128) | 24-bit WAV |
+| `atsc-a85` | -24 LKFS, true peak at most -2 dBTP (ATSC A/85) | 24-bit WAV |
+
+It writes the delivered file, the Zumzum program that ran (`.zz`), the numbers before and after (`.json`), a sheet
+and the [repair record](#the-repair-record). The program is one `loudness` node, which sets a single gain, plus the
+targets as checks. The gain is capped so the true peak stays under the limit; nothing is limited or compressed. The encoded file is then decoded and measured again,
+because an encoder can lower the level or push a peak up; when it did, the program is corrected and run again, up
+to three times. The exit code is 0 only when the delivered file meets the targets.
+
+![Level and true peak of 40 delivered files against four sets of delivery targets](docs/img/readme_fix_spec.png)
+
+FIX_SPEC_RESULT
+
+Three things to know. Results are measured against each specification's published numbers; this is not a
+certification, and the platforms run their own checks. `fix` changes the level only: a noisy recording keeps its
+noise, only louder, and a noise floor over ACX's limit is reported as a failure, not repaired. And a recording with
+high peaks may not reach its target with one gain; `fix` then says it needs limiting and by how much it fell short.
+It does not limit.
+
+Not affiliated with or endorsed by Apple, Audible (ACX), the EBU or ATSC; targets are taken from their published
+specifications.
+
+## The repair record
+
+Every file that `convert.py`, `fix.py` and `batch.py` write carries a record of what was done to it: the program,
+each check's result, hashes of the source and of the delivered audio, and what each node measured. The record is
+stored inside the file (WAV, MP3, FLAC, M4A) and next to it as `<output>.zzr.json`, because many services strip
+metadata.
+
+```
+python tools/verify.py out/talk.mp3 --source talk.wav
+```
+
+`verify.py` checks the record's hash, checks that the file still holds the audio the record describes, and, given
+the source, runs the program again and compares the result with the delivered audio and every recorded check. The
+format is in [docs/spec.md](docs/spec.md), section 11.
+
+## Turning sound down only
+
+Noise reduction can add things that were not in the recording. The `attenuate` node takes another layer, for
+example a `denoise` of the input, and uses it only to decide how much of each small piece of the recording to
+keep:
+
+```
+node d = denoise(mode: mmse, reduce_db: 15)
+node a = attenuate(est: est)
+layer est = d
+layer main = a
+output main
+check only_down = attenuated()
+```
+
+Everything you hear in `main` comes from your recording; the estimate can only lower parts of it, never add sound.
+The `attenuated` check measures this on every run (no part of the output's own analysis more than 1 dB over the
+input, by default), and the result is written into the repair record. The full program is
+[examples/cylinder_attenuate.zz](examples/cylinder_attenuate.zz). Turning sound down can still remove something you
+wanted, so listen to the result.
+
 ## The examples
 
 ![Before and after spectrograms of every example](docs/img/readme_examples.png)
@@ -116,9 +195,10 @@ Each example is tuned to its own recording. Before using one on another file, ch
 | [record_declick.zz](examples/record_declick.zz) | clicks out of a 1917 78 rpm record | 451 clicks before, 70 after (100 allowed); music within 0.01 dB |
 | [phone_heal.zz](examples/phone_heal.zz) | dial tones and rumble out of a reading | tones down 11.5 dB, rumble down 29 dB; the change elsewhere 66 dB below the sound there (30 dB required) |
 | [drums_down.zz](examples/drums_down.zz) | drums down about 12 dB under a piano | cymbal band down 11.9 dB; piano within 1.5 dB (3 allowed) |
+| [voice_loudness.zz](examples/voice_loudness.zz) | a quiet voice up to broadcast loudness (-24 LKFS) | -39.2 to -24.5 LUFS, as far as its peaks allow with one gain; true peak -1.0 dBTP |
 | [mp3_record.zz](examples/mp3_record.zz) | clicks and hiss out of a 1920 record, mp3 in and out | 200 clicks before, 26 after (60 allowed); hiss in the lead-in down 15.6 dB; band within 1.2 dB |
 
-The first five come from `tools/make_examples.py`, the mp3 one from `convert.py` as shown above. There's also
+The first six come from `tools/make_examples.py`, the mp3 one from `convert.py` as shown above. There's also
 [video_denoise.zz](examples/video_denoise.zz), written for a 1920s newsreel clip that `fetch_audio.py` doesn't
 download, so it has no result here; use it as a starting point for your own video.
 

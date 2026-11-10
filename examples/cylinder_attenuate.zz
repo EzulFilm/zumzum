@@ -1,0 +1,11 @@
+zumzum 0.1
+name "Less hiss, by turning down only"
+sel pause = time(t_s: 16.09..16.65)
+node d = denoise(mode: mmse, reduce_db: 15)
+node a = attenuate(est: est)
+layer est = d
+layer main = a
+output main
+check only_down = attenuated()
+check hiss_down = drop(at: pause, min_db: 6)
+check no_clip = peak(max_dbfs: -0.1)

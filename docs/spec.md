@@ -73,6 +73,7 @@ there is one).
 | enum | `mmse` | one of the listed identifiers (or numbers, for `fft` / `size`) |
 | range | `1.2..1.5` | lo < hi, both in the parameter's [lo, hi] |
 | sel | `voice` | a reference to a named `sel` statement, wherever a parameter takes one (check `at`, `denoise` `profile`) |
+| layer | `est` | the name of a layer written above the layer that uses it (`attenuate` `est`) |
 
 **Units are part of the parameter name:** `_s` seconds, `_ms` milliseconds, `_hz` hertz, `_db` decibels, `_dbfs` dB
 relative to full scale (a full-scale sine is 0 dBFS at its peak). A bare number never carries a hidden unit. Time is
@@ -100,7 +101,8 @@ a span by its centre time, and a bin belongs to a band by its centre frequency. 
 
 ## 5. Engine
 
-Audio is float64 (channels, samples) at full scale ±1. Channels are processed independently.
+Audio is float64 (channels, samples) at full scale ±1. Channels are processed independently, except by the
+whole-layer ops (`loudness`, `attenuate`), which see all channels at once.
 
 **STFT** (`zumzum/stft.py`): periodic Hann window of `size` samples, hop = size / overlap. The signal is padded with
 `size` zeros on both sides, so every sample is covered by full frames. The inverse is a least-squares overlap-add,
@@ -121,6 +123,9 @@ X = STFT(current signal), Y = op(X), Z = X + mix * M * (Y - X), and the signal b
 limit them, so the checker refuses it. y = op(x), then x + mix * w(n) * (y - x), where w(n) is the selection's largest
 weight over frequency at each frame of the program's analysis grid (its `size` and hop), interpolated to samples.
 
+**Whole-layer ops** (`loudness`, `attenuate`) take no `at`: y = op(whole layer, all channels), then
+x + mix * (y - x).
+
 | op | what it does |
 |---|---|
 | `gain(db)` | multiply by 10^(db / 20) |
@@ -129,6 +134,9 @@ weight over frequency at each frame of the program's analysis grid (its `size` a
 | `declick(sensitivity: 10, max_ms: 3, order: 24)` | AR(order) prediction error per 4096-sample block. A click is where the error is more than `sensitivity` times its local robust level (1.4826 x the running median of the absolute error over 10 ms), widened by 2 samples before and order / 4 after. Each click up to `max_ms` long is refilled by one least-squares AR interpolation over both sides (Janssen, Veldhuis & Vries 1986). The model order is at least 3x the gap length (at most 160), fitted on up to 2048 samples each side. An implausible fill (> 1.2x the surrounding peak) falls back to a straight line. A fill is held within ±0.99. Three passes. |
 | `heal(direction: time, context_ms: 60, phase: keep, fft: 0) at <sel>` | the region M > 0 is replaced by an estimate from outside it. `time`: per bin, log magnitude interpolated linearly between the mean of `context_ms` before and after each run of selected frames. `freq`: per frame, between the 3 bins below and above. `both`: their average. `phase: keep` keeps the region's own phase. `continue` advances the phase of the frame before the region by its measured instantaneous frequency (for steady tones). `at` is required. |
 | `split_hp(part, rest_db: -120, time_ms: 200, freq_hz: 500, fft: 0)` | harmonic / percussive split by median filtering (FitzGerald 2010). H = median along time over time_ms, P = median along frequency over freq_hz, and soft masks H² / (H² + P²) and P² / (H² + P²). Keeps `part`, with the other part at rest_db (-120 removes it). |
+
+| `loudness(target_lufs: -23, max_true_peak_dbtp: -1)` | one gain for the whole layer so its integrated loudness (ITU-R BS.1770-4 / EBU R 128: K-weighting, 400 ms blocks every 100 ms, gates at -70 LUFS and 10 LU under) reaches target_lufs, capped so the true peak (measured on the signal upsampled to at least 192 kHz) stays at or under max_true_peak_dbtp. Nothing is limited or compressed: when the peaks leave too little room the layer ends short of the target, and the node's `short_by_lu` says by how much; no `at` |
+| `attenuate(est: LAYER)` | attenuate only: gain min(1, \|estimate\| / \|input\|) per cell of the program's STFT, where the estimate is a layer written above (for example a `denoise` of the input), then 50 fixed projection rounds (any re-analysed cell over the input's \|X\| is scaled back to it; Griffin & Lim 1984). It can only turn parts of the layer down, never add sound; no `at` |
 
 ## 6. Checks
 
@@ -150,6 +158,12 @@ there. This was found on 2026-10-28, on the phone example.
 | `hum_drop(f0_hz, harmonics: 10, min_db)` | tonal excess at f0 (refined ±1 Hz on before) and its harmonics, i.e. Welch PSD power in ±2 bins above the median of the neighbouring bins, fell by min_db, or is less than 10 % of that neighbouring floor |
 | `clicks(max: 0, sensitivity: 10)` | the `declick` detector finds at most `max` clicks in after (summed over channels) |
 | `peak(max_dbfs: -0.1)` | the sample peak is at most max_dbfs |
+| `loudness(target_lufs, tol_lu: 1)` | the integrated loudness (BS.1770-4 / R 128 gating) is target_lufs within ±tol_lu; not valid when silent or under 0.4 s |
+| `true_peak(max_dbtp: -1)` | the true peak (BS.1770-4 Annex 2, upsampled to at least 192 kHz) is at most max_dbtp |
+| `loudness_range(max_lu: 6)` | the loudness range (EBU Tech 3342: 3 s blocks, gates at -70 LUFS and 20 LU under, 95th minus 10th percentile) is at most max_lu; not valid when silent or under 3 s |
+| `rms(min_dbfs, max_dbfs)` | the RMS of all samples of the louder channel (a full-scale sine reads -3 dBFS) is in the range |
+| `noise_floor(max_dbfs: -60, window_ms: 500)` | the quietest window_ms span that is not digital silence (100 ms steps, RMS of the louder channel) is at most max_dbfs |
+| `attenuated(max_over_db: 1, floor_db: -40, max_excess_db: -30)` | the layer, re-analysed, is no louder than the input cell by cell: among cells within floor_db of the loudest, the largest excess is at most max_over_db, and the total energy by which cells exceed the input is at most max_excess_db of the layer's energy |
 | `change(at, target_db, tol_db: 3)` | the selection's energy changed by target_db, within ±tol_db (after minus before, dB) |
 | `musical_noise(at, max_ratio: 1.5)` | **experimental, not validated**: the kurtosis of the noise-only cells' power (each bin divided by its own mean), after / before, is at most max_ratio. It is present in 0.1 but did not flag plain spectral subtraction in a test, so no example relies on it |
 
@@ -157,7 +171,7 @@ there. This was found on 2026-10-28, on the phone example.
 measurable and why.
 
 **Damage gate** (always, `zumzum/measure.py`): non-finite samples, clipping (peak > 0 dBFS), an output more than 6 dB
-louder than the input, or an output more than 40 dB quieter (near silence) than any input that is not digital silence,
+louder than the input (with a `loudness` node in the output's chain: more than 1 LU over its target instead), or an output more than 40 dB quieter (near silence) than any input that is not digital silence,
 however quiet. A damaged version can never end the loop as done, whatever its checks say.
 
 Planned (not in 0.1): perceptual checks that follow the three questions listeners are asked about noise reduction
@@ -227,3 +241,26 @@ refuses an unknown model or stem by name. The engine runs a model once per (mode
 on CPU, caches the stems, and records the model hash in the results. A new check `sums_to(layers: [...], max_db)`
 measures how far the named layers' sum is from the input. A separation is chosen by model and stem name (and a text
 prompt for prompted models), never by drawing. No model ships until its code, weights and training data are cleared.
+
+## 11. The repair record
+
+Every file `tools/convert.py`, `tools/fix.py` and `tools/batch.py` write carries a record of what was done to it
+(`zumzum/record.py`): one JSON object in canonical form (UTF-8, sorted keys, no spaces), so it has one SHA-256.
+
+| field | holds |
+|---|---|
+| `tool` | name, version and the git commit of the code that ran |
+| `source` | the source file's name, the SHA-256 of its bytes and of its decoded samples |
+| `program` | the program text and its SHA-256 |
+| `checks`, `damage` | every check's result and the damage gate's findings |
+| `nodes` | what each node measured |
+| `delivered` | the output's name, the encoder arguments, the SHA-256 of its decoded samples, measured levels |
+
+The record is written inside the file (WAV: a `bext` chunk naming the record's hash and a RIFF chunk `zzrc` holding
+it; MP3: ID3v2 `TXXX`; FLAC / Ogg: Vorbis comments; M4A / MP4: a metadata item) and next to it as
+`<output>.zzr.json`, because many services strip metadata. Embedding re-muxes without re-encoding.
+
+`tools/verify.py output [--source input]` finds the record, checks its hash, compares the decoded audio's hash with
+the recorded one and, given the source, checks its hash, runs the program again, compares the re-made output with the
+delivered one (the same hash, or a difference under -90 dB of the output) and re-measures every check (each value
+within 0.01, the same pass / fail).

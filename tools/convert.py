@@ -7,7 +7,7 @@ ffmpeg (on PATH, not bundled) decodes the sound to 32-bit float WAV at its own r
 program against that sound's length and rate, renders it, and measures its checks and the damage gate. ffmpeg then
 encodes the output by its extension: .mp3 as MP3 (LAME, 192 kb/s), .m4a as AAC 192 kb/s, .flac as FLAC, .wav as
 16-bit PCM; for .mp4 / .mov / .mkv the input's video stream is copied bit for bit and the sound is AAC.
-Results go to <output>.json.
+Results go to <output>.json; the repair record goes into the output and <output>.zzr.json (tools/verify.py).
 """
 
 import argparse
@@ -79,7 +79,8 @@ def run(program, src, dst, sheet_path=None, title=None, overwrite=False):
     if dst.resolve() == src.resolve():
         raise SystemExit(f"{dst}: the output must be a different file from the input")
     if not overwrite:
-        outputs = (dst, dst.with_suffix(".json"), *((Path(sheet_path),) if sheet_path else ()))
+        outputs = (dst, dst.with_suffix(".json"), Path(str(dst) + ".zzr.json"),
+                   *((Path(sheet_path),) if sheet_path else ()))
         for p in outputs:
             if p.exists():
                 raise SystemExit(f"{p} exists; pass --overwrite to replace it")
@@ -93,19 +94,24 @@ def run(program, src, dst, sheet_path=None, title=None, overwrite=False):
         outs, info = render(prog, x, sr)
         y = outs[prog.output]
         res = run_checks(prog, x, outs, sr)
-        dmg = damage(x, y)
+        dmg = damage(x, y, prog, sr)
         save(wav_out, y, sr)
         if ext in VIDEO:
             ffmpeg(*local(src), *local(wav_out), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
                    "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(dst), replace=overwrite)
         else:
             ffmpeg(*local(wav_out), *AUDIO[ext], str(dst), replace=overwrite)
+    checks = [{k: (bool(v) if k == "pass" else (None if v is None else float(v)) if k == "value" else v)
+               for k, v in r.items()} for r in res]
+    from zumzum import record
+    enc = AUDIO[ext] if ext in AUDIO else ["-c:a", "aac", "-b:a", "192k"]
+    rec = record.make(src, Path(program).read_text(encoding="utf-8"), checks, dmg, dst, enc, nodes=info)
+    digest = record.attach(dst, rec)  # the repair record, inside the file and in <output>.zzr.json
     if sheet_path:
         from zumzum.sheets import sheet
         sheet(sheet_path, x, y, sr, title or prog.name, res, str(program), fmax=8000)
     result = {"program": str(program), "input": src.name, "output": dst.name, "sr": sr, "channels": x.shape[0],
-              "checks": [{k: (bool(v) if k == "pass" else float(v) if k == "value" else v) for k, v in r.items()}
-                         for r in res], "damage": dmg, "info": info}
+              "checks": checks, "damage": dmg, "info": info, "record_sha256": digest}
     dst.with_suffix(".json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result, x, y, sr
 

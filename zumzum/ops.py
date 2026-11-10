@@ -29,6 +29,10 @@ def rng(lo, hi, default, text):
     return ("range", lo, hi, default, text)
 
 
+def layer(default, text):
+    return ("layer", None, None, default, text)
+
+
 def sel(default, text):
     return ("sel", None, None, default, text)
 
@@ -111,6 +115,22 @@ OPS = {
                                       "sounds)"),
                         "fft": enum((0,) + FFT_SIZES, 0, "FFT size for this op (0 = the analysis size)")},
              "needs_at": True},
+    "loudness": {"domain": "joint", "about": "one gain for the whole layer so its integrated loudness (ITU-R BS.1770-4 "
+                                             "/ EBU R 128, LUFS) reaches target_lufs, or comes as close as the "
+                                             "true-peak ceiling allows: the gain is never more than what keeps the "
+                                             "true peak at or under max_true_peak_dbtp. Nothing is limited or "
+                                             "compressed; a layer whose peaks leave too little room ends short of "
+                                             "the target, and the node says by how much",
+                 "params": {"target_lufs": num(-70, 0, -23, "integrated loudness to reach"),
+                            "max_true_peak_dbtp": num(-12, 0, -1, "true-peak ceiling")},
+                 "no_at": True},
+    "attenuate": {"domain": "joint", "about": "attenuate only: keep each time-frequency cell of this layer's input at "
+                                              "most at its own level, as much as the estimate layer (an earlier "
+                                              "layer, e.g. a denoise of the input) holds there: gain min(1, "
+                                              "|estimate| / |input|) per cell, then the output re-analysed and any cell "
+                                              "over the input scaled back (50 fixed rounds); it can only turn parts "
+                                              "down, never add sound; check it with attenuated",
+                  "params": {"est": layer(None, "the estimate layer (written above, same length)")}, "no_at": True},
     "split_hp": {"domain": "stft",
                  "about": "keep only the harmonic (sustained) or percussive (transient) part, by median filtering "
                           "(FitzGerald 2010); no trained model",
@@ -147,6 +167,32 @@ CHECKS = {
                                  "max_ratio": num(1, 10, 1.5, "largest kurtosis ratio")}},
     "peak": {"about": "the sample peak is at most max_dbfs (no clipping)",
              "params": {"max_dbfs": num(-60, 0, -0.1, "highest sample peak")}},
+    "loudness": {"about": "the whole layer's integrated loudness (ITU-R BS.1770-4 / EBU R128 gating, LUFS) is "
+                          "target_lufs within +-tol_lu",
+                 "params": {"target_lufs": num(-70, 0, None, "integrated loudness wanted"),
+                            "tol_lu": num(0, 10, 1, "how close (EBU R128 allows +-1 LU where live, +-0.5 otherwise)")}},
+    "true_peak": {"about": "the true peak (BS.1770-4 Annex 2: peak of the signal upsampled to at least 192 kHz, so "
+                           "peaks between samples count) is at most max_dbtp",
+                  "params": {"max_dbtp": num(-60, 3, -1, "highest true peak")}},
+    "rms": {"about": "the whole layer's RMS level (all samples, the louder channel; dBFS, a full-scale sine reads -3) is "
+                     "between min_dbfs and max_dbfs (ACX audiobooks: -23..-18)",
+            "params": {"min_dbfs": num(-80, 0, None, "lowest RMS allowed"),
+                       "max_dbfs": num(-80, 0, None, "highest RMS allowed")}},
+    "noise_floor": {"about": "the noise floor (the quietest window_ms span of the layer that is not digital silence, "
+                             "RMS of the louder channel, dBFS) is at most max_dbfs (ACX audiobooks: -60)",
+                    "params": {"max_dbfs": num(-120, 0, -60, "highest noise floor"),
+                               "window_ms": num(50, 5000, 500, "length of the quietest span measured")}},
+    "attenuated": {"about": "the layer is no louder than the input, cell by cell (the program's STFT, re-analysed): "
+                            "among cells within floor_db of the loudest, the largest excess is at most max_over_db, "
+                            "and the energy by which any cell exceeds the input is at most max_excess_db of the "
+                            "layer's energy (overlap-add smears a little energy from loud cells into quiet ones)",
+                   "params": {"max_over_db": num(0, 20, 1, "largest excess allowed in a compared cell"),
+                              "floor_db": num(-160, -10, -40, "cells this far under the loudest are not compared"),
+                              "max_excess_db": num(-120, 0, -30, "largest total excess, dB of the layer's energy")}},
+    "loudness_range": {"about": "the whole layer's loudness range (EBU Tech 3342 LRA: the spread of its 3 s "
+                                "loudness, 10th to 95th percentile, pauses gated out) is at most max_lu; a levelled "
+                                "voice is about 3-6 LU",
+                       "params": {"max_lu": num(0, 40, 6, "largest loudness range")}},
 }
 
 LIMITS = {

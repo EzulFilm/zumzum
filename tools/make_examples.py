@@ -78,10 +78,14 @@ def build(name, files):
         drums = 10 ** (-8 / 20) * d
         return p + drums, sr, ("Bach Goldberg Aria, Musopen (CC0), 0-20 s + '130 old drum break' by Bauchamp (CC0), "
                                "0-20 s, at -8 dB"), {"fmax": 12000, "zoom": None, "truth": (p, drums)}
+    if name == "voice_loudness":
+        x, sr = load(files["speech_whitman"], 0, 20, mono=True)
+        return 10 ** (-14 / 20) * x, sr, ("LibriVox 'O Captain! My Captain!' (public domain), 0-20 s, mono; "
+                                         "turned down 14 dB (a quiet recording)"), {"fmax": 8000, "zoom": None}
     raise KeyError(name)
 
 
-NAMES = ["hum_voice", "cylinder_denoise", "record_declick", "phone_heal", "drums_down"]
+NAMES = ["hum_voice", "cylinder_denoise", "record_declick", "phone_heal", "drums_down", "voice_loudness"]
 
 
 def main(names):
@@ -103,7 +107,7 @@ def main(names):
         outs, info = render(prog, x, sr)
         y = outs[prog.output]
         res = run_checks(prog, x, outs, sr)
-        dmg = damage(x, y)
+        dmg = damage(x, y, prog, sr)
         d = OUT / name
         d.mkdir(parents=True, exist_ok=True)
         save(d / "before.wav", x, sr)

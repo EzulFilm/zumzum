@@ -331,3 +331,11 @@ def test_convert_refuses_an_existing_output_unless_asked(tmp_path):
     with pytest.raises(SystemExit, match="--overwrite"):
         run(tmp_path / "p.zz", tmp_path / "in.wav", tmp_path / "new.wav", sheet_path=png)
     assert png.read_bytes() == b"keep" and not (tmp_path / "new.wav").exists()
+
+
+def test_hum_text_says_which_way_it_passed():
+    from zumzum.measure import _hum_text
+    assert _hum_text("hum", 31.0, 30, True) == "hum went down 31.0 dB (needed >= 30 dB)"
+    t = _hum_text("hum", 25.1, 30, True)
+    assert "no longer above the neighbouring bins, which passes" in t and "needed" not in t
+    assert "still stands above" in _hum_text("hum", 5.0, 30, False)

@@ -1,0 +1,8 @@
+zumzum 0.1
+name "A quiet voice to broadcast loudness"
+
+node lift = loudness(target_lufs: -24, max_true_peak_dbtp: -1)
+layer main = lift
+
+check level = loudness(target_lufs: -24, tol_lu: 1)
+check peaks = true_peak(max_dbtp: -1)

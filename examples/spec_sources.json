@@ -1,0 +1,281 @@
+{
+  "about": "Test recordings for tools/fix.py --spec, 10 per rule set; public domain / CC0 / CC BY / CC BY-SA from Wikimedia Commons (licence and author from each file's Commons metadata, 2026-11-10). Audio is never committed: tools/spec_data.py downloads it into cache/spec_audio and checks SHA-256.",
+  "sets": {
+    "podcast": {
+      "jfk_inaugural_address": {
+        "title": "JFK inaugural address.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:JFK_inaugural_address.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/d/d5/JFK_inaugural_address.ogg",
+        "bytes": 5978784,
+        "licence": "Public domain",
+        "author": "John F. Kennedy",
+        "sha256": "a257580da6eda796ed1c703e545865005753f7cb20cc042e0db3c44de82274fc"
+      },
+      "harry_truman_announcing_surrender_of_germany": {
+        "title": "Harry Truman Announcing Surrender Of Germany.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Harry_Truman_Announcing_Surrender_Of_Germany.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Harry_Truman_Announcing_Surrender_Of_Germany.ogg",
+        "bytes": 2067023,
+        "licence": "Public domain",
+        "author": "Harry S. Truman",
+        "sha256": "4c75daaa34b3789168403d5d3df25a199b848ec2e158195b960886eeb83f27de"
+      },
+      "gerald_ford_s_comments_at_his_swearing_in_ceremo": {
+        "title": "Gerald Ford's comments at his Swearing in Ceremony to be 38th President of the United States.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Gerald_Ford%27s_comments_at_his_Swearing_in_Ceremony_to_be_38th_President_of_the_United_States.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/8/83/Gerald_Ford%27s_comments_at_his_Swearing_in_Ceremony_to_be_38th_President_of_the_United_States.ogg",
+        "bytes": 4983627,
+        "licence": "Public domain",
+        "author": "'GRFordLibraryMuseum' Official Governmental YouTube channel of the Gerald Ford Presidential Library and Museum",
+        "sha256": "ec9a992fe3925a2fa04ecc140d52fec7433626b473229f82524aea95e4bee893"
+      },
+      "booker_t_washington_speech_1895": {
+        "title": "Booker T. Washington, Speech, 1895.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Booker_T._Washington,_Speech,_1895.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/7/77/Booker_T._Washington%2C_Speech%2C_1895.ogg",
+        "bytes": 2500851,
+        "licence": "Public domain",
+        "author": "Booker T. Washington",
+        "sha256": "82fd056e755b62b8de51ed9f3bd77b1f8102b8d145b6d3109bad2aaed485411a"
+      },
+      "marcus_garvey_speech_1921": {
+        "title": "Marcus Garvey, speech, 1921.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Marcus_Garvey,_speech,_1921.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Marcus_Garvey%2C_speech%2C_1921.ogg",
+        "bytes": 2658394,
+        "licence": "Public domain",
+        "author": "Marcus Garvey",
+        "sha256": "1195953ec3b6b767dc106db00a01486d14a79158ed03f03908492c13b0f90cd2"
+      },
+      "an_address_by_opposition_leader_anthony_albanese": {
+        "title": "An address by Opposition Leader Anthony Albanese.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:An_address_by_Opposition_Leader_Anthony_Albanese.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/An_address_by_Opposition_Leader_Anthony_Albanese.ogg",
+        "bytes": 1235996,
+        "licence": "CC BY 3.0",
+        "author": "Lowy Institute",
+        "sha256": "e054e5347ac34e60d9e012477f93a437753af99e5e579c92b11fde7d655af092"
+      },
+      "isar_ul_qasmi_s_speech": {
+        "title": "Isar Ul Qasmi's Speech.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Isar_Ul_Qasmi%27s_Speech.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Isar_Ul_Qasmi%27s_Speech.ogg",
+        "bytes": 1834494,
+        "licence": "CC0",
+        "author": "Owais Al Qarni",
+        "sha256": "ee8401a3df7971d8defb6b5fa028d05bf105f58fd8dfb0d313865d2d18d95bcd"
+      },
+      "speech_by_siarhiej_dubaviec": {
+        "title": "Speech by Siarhiej Dubaviec.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Speech_by_Siarhiej_Dubaviec.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Speech_by_Siarhiej_Dubaviec.ogg",
+        "bytes": 1204108,
+        "licence": "CC BY-SA 4.0",
+        "author": "Jarash",
+        "sha256": "38c3521c8b37c2096d966ba34519de98b74215e511133e9dfc0454cc4e35426c"
+      },
+      "nixon_resignation_audio_with_buzz_removed": {
+        "title": "Nixon resignation audio with buzz removed.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Nixon_resignation_audio_with_buzz_removed.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Nixon_resignation_audio_with_buzz_removed.ogg",
+        "bytes": 7810245,
+        "licence": "Public domain",
+        "author": "Richard Nixon",
+        "sha256": "1121e3a9dbc43240fe60914ede0461c8eece2cfa04ba16622c8f53aaee2465b6"
+      },
+      "a_j_cook_speech_from_lansbury_s_labour_weekly": {
+        "title": "A J Cook Speech from Lansbury's Labour Weekly.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:A_J_Cook_Speech_from_Lansbury%27s_Labour_Weekly.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/2/2d/A_J_Cook_Speech_from_Lansbury%27s_Labour_Weekly.ogg",
+        "bytes": 2037230,
+        "licence": "Public domain",
+        "author": "Lansbury's Labour Weekly",
+        "sha256": "b715084818084969f98183c1683edda1799d9d8da83bc575de2627f19fe1c233"
+      }
+    },
+    "audiobook": {
+      "6ann_08_samuelpepys_bg_64kb": {
+        "title": "6ann 08 samuelpepys bg 64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:6ann_08_samuelpepys_bg_64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/e/eb/6ann_08_samuelpepys_bg_64kb.ogg",
+        "bytes": 2130078,
+        "licence": "CC BY-SA 4.0",
+        "author": "Samuel Pepys (recorded by Libravox)",
+        "sha256": "2d84aafcce0ae57b12c84635b99518442b8c67fed3422ec93a2f6e776347532b"
+      },
+      "bookofmarcopolo1_chap22_pisa_64kb": {
+        "title": "Bookofmarcopolo1 chap22 pisa 64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Bookofmarcopolo1_chap22_pisa_64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Bookofmarcopolo1_chap22_pisa_64kb.ogg",
+        "bytes": 1750931,
+        "licence": "CC0",
+        "author": "Marco Polo",
+        "sha256": "dcbe653b1d682f229801f8f6134efd896d8798673202dca727bb32c54c7d51b8"
+      },
+      "br_der_grimm_rotk_ppchen": {
+        "title": "Brüder Grimm - Rotkäppchen.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Br%C3%BCder_Grimm_-_Rotk%C3%A4ppchen.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/69/Br%C3%BCder_Grimm_-_Rotk%C3%A4ppchen.ogg",
+        "bytes": 3927689,
+        "licence": "CC0",
+        "author": "Brüder Grimm. Reads Hans Hafen",
+        "sha256": "2bb2ebb80de54b1020083fd0d74a21688103191c5f4427508fc94f348c0db180"
+      },
+      "journallewisandclarke_06_lewis_clark_64kb": {
+        "title": "Journallewisandclarke 06 lewis-clark 64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Journallewisandclarke_06_lewis-clark_64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/3/33/Journallewisandclarke_06_lewis-clark_64kb.ogg",
+        "bytes": 3393571,
+        "licence": "CC0",
+        "author": "Librivox (Denny Sayers)",
+        "sha256": "9c32e6e8b97f01925e02fcce4d74dace7ff2579fb80ec49077beb5ede61bd5a9"
+      },
+      "la_papallona_cap_tol_09_udio": {
+        "title": "La Papallona capítol 09 àudio.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:La_Papallona_cap%C3%ADtol_09_%C3%A0udio.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/60/La_Papallona_cap%C3%ADtol_09_%C3%A0udio.ogg",
+        "bytes": 4182263,
+        "licence": "CC0",
+        "author": "jpujolar",
+        "sha256": "0cffdb73a4f99e2c89868c55057945d37c6a218f5a091c0c4976a94436dc0f92"
+      },
+      "la_punyalada_cap_tol_12_udio": {
+        "title": "La punyalada capítol 12 àudio.oga",
+        "page": "https://commons.wikimedia.org/wiki/File:La_punyalada_cap%C3%ADtol_12_%C3%A0udio.oga",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/f/fd/La_punyalada_cap%C3%ADtol_12_%C3%A0udio.oga",
+        "bytes": 10254305,
+        "licence": "CC0",
+        "author": "jpujolar",
+        "sha256": "091e8a5d6c68350d912e1a1cb504ad3088b5f96c77e413789899264a509ae3e6"
+      },
+      "farewelladdresses_u_s_president_john_adams64kb": {
+        "title": "Farewelladdresses U.S President John Adams64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Farewelladdresses_U.S_President_John_Adams64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Farewelladdresses_U.S_President_John_Adams64kb.ogg",
+        "bytes": 3871241,
+        "licence": "CC0",
+        "author": "John Adams, 2nd President of the United States,   Read by John Greenman",
+        "sha256": "f0e4c5965dde27bc1d96aca49c46f13b7140660d39adf9b02db59614c3f74606"
+      },
+      "el_donador_de_almas_de_amado_nervo_de_los_autore": {
+        "title": "El Donador de Almas de Amado Nervo, De los Autores y sus Obras.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:El_Donador_de_Almas_de_Amado_Nervo,_De_los_Autores_y_sus_Obras.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/1/13/El_Donador_de_Almas_de_Amado_Nervo%2C_De_los_Autores_y_sus_Obras.ogg",
+        "bytes": 1433508,
+        "licence": "Public domain",
+        "author": "Amado Nervo",
+        "sha256": "f64ba5c10260db2404f329bbd2301269215295454ce6f25a378934c1213033f8"
+      },
+      "6ann_60_treatysixnations_law_64kb": {
+        "title": "6ann 60 treatysixnations law 64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:6ann_60_treatysixnations_law_64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/6ann_60_treatysixnations_law_64kb.ogg",
+        "bytes": 890425,
+        "licence": "CC BY-SA 4.0",
+        "author": "United States Government (recorded by Libravox)",
+        "sha256": "19f74c1e321adf4cb13e7ccce1ce40636fea7080a91179bcb786c71a97ec9fd8"
+      },
+      "interestingnarrative_02_equiano_64kb": {
+        "title": "Interestingnarrative 02 equiano 64kb.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Interestingnarrative_02_equiano_64kb.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/3/36/Interestingnarrative_02_equiano_64kb.ogg",
+        "bytes": 9775852,
+        "licence": "Public domain",
+        "author": "Olaudah Equiano, read by roolynninms",
+        "sha256": "47f99573312036f4b06b1e33babd01af351b9614312dc8a065a146732657e782"
+      }
+    },
+    "broadcast": {
+      "antonin_dvorak_carnival_overture_op_92": {
+        "title": "Antonin Dvorak - carnival overture, op. 92.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Antonin_Dvorak_-_carnival_overture,_op._92.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/b8/Antonin_Dvorak_-_carnival_overture%2C_op._92.ogg",
+        "bytes": 10775526,
+        "licence": "Public domain",
+        "author": "Antonín Dvořák",
+        "sha256": "cbc3a321e25545682c52e5de724340d32919f7abed6b1aa306166a9ce39c45cc"
+      },
+      "alexander_borodin_in_the_steppes_of_central_asia": {
+        "title": "Alexander Borodin - In The Steppes Of Central Asia.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Alexander_Borodin_-_In_The_Steppes_Of_Central_Asia.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/be/Alexander_Borodin_-_In_The_Steppes_Of_Central_Asia.ogg",
+        "bytes": 4731200,
+        "licence": "CC0",
+        "author": "Musopen Symphony Orchestra",
+        "sha256": "aea18473e0fdab570af658bf1f35bf121eca9a673e609a37753444db9b9ec5ef"
+      },
+      "a_midsummer_night_s_dream_op_61_wedding_march_me": {
+        "title": "A Midsummer Night's Dream Op. 61 Wedding March (Mendelssohn) European Archive.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:A_Midsummer_Night%27s_Dream_Op._61_Wedding_March_(Mendelssohn)_European_Archive.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/c/cb/A_Midsummer_Night%27s_Dream_Op._61_Wedding_March_%28Mendelssohn%29_European_Archive.ogg",
+        "bytes": 7748964,
+        "licence": "Public domain",
+        "author": "European Archive",
+        "sha256": "936a1ccef38b6602a4045e2395139d088552a8f0602352b987f8485d98edd9eb"
+      },
+      "ballade_no_1_op_23": {
+        "title": "Ballade no. 1 - Op. 23.mp3",
+        "page": "https://commons.wikimedia.org/wiki/File:Ballade_no._1_-_Op._23.mp3",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Ballade_no._1_-_Op._23.mp3",
+        "bytes": 12382720,
+        "licence": "CC0",
+        "author": "Frederic Chopin",
+        "sha256": "d9778293f57d99c368a83389b63815a4145105277ce9bb07c3773171aa0fff08"
+      },
+      "bach_johann_sebastian_suite_no_2_in_b_minor_x_ba": {
+        "title": "Bach, Johann Sebastian - Suite No.2 in B Minor - X. Badinerie.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Bach,_Johann_Sebastian_-_Suite_No.2_in_B_Minor_-_X._Badinerie.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/9/97/Bach%2C_Johann_Sebastian_-_Suite_No.2_in_B_Minor_-_X._Badinerie.ogg",
+        "bytes": 1300879,
+        "licence": "CC0",
+        "author": "European Archive",
+        "sha256": "f1458030ec0cb1c2466de6f040f58434feff52174c61ddc18db7064d2a4e8fa5"
+      },
+      "harry_truman_announcing_surrender_of_japan": {
+        "title": "Harry Truman Announcing Surrender Of Japan.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Harry_Truman_Announcing_Surrender_Of_Japan.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Harry_Truman_Announcing_Surrender_Of_Japan.ogg",
+        "bytes": 3314475,
+        "licence": "Public domain",
+        "author": "Harry S. Truman",
+        "sha256": "9e30bda0b07587b6e281131b47c2fd2d7af2d9320f68c0adf3a53a6383c6c540"
+      },
+      "john_f_kennedy_address_on_the_buildup_of_arms_in": {
+        "title": "John F Kennedy Address on the Buildup of Arms in Cuba.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:John_F_Kennedy_Address_on_the_Buildup_of_Arms_in_Cuba.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/a/a9/John_F_Kennedy_Address_on_the_Buildup_of_Arms_in_Cuba.ogg",
+        "bytes": 4986049,
+        "licence": "Public domain",
+        "author": "John F. Kennedy",
+        "sha256": "8c9ef6933bc0ab5444cddbde18ed6d36063393bf894b777f8c226e13d0cfddd0"
+      },
+      "emil_h_cha_nov_st_topr_vn_uspo_d_n_1939": {
+        "title": "Emil Hácha - nové státoprávní uspořádání 1939.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Emil_H%C3%A1cha_-_nov%C3%A9_st%C3%A1topr%C3%A1vn%C3%AD_uspo%C5%99%C3%A1d%C3%A1n%C3%AD_1939.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Emil_H%C3%A1cha_-_nov%C3%A9_st%C3%A1topr%C3%A1vn%C3%AD_uspo%C5%99%C3%A1d%C3%A1n%C3%AD_1939.ogg",
+        "bytes": 5537136,
+        "licence": "Public domain",
+        "author": "Československý rozhlas",
+        "sha256": "0617b7f423a1f13a4247c528cbd97c5529ec63c7cc5c63eefe169b35fa425b17"
+      },
+      "ronald_reagan_first_inaugural": {
+        "title": "Ronald Reagan First Inaugural.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Ronald_Reagan_First_Inaugural.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/1/10/Ronald_Reagan_First_Inaugural.ogg",
+        "bytes": 6371036,
+        "licence": "Public domain",
+        "author": "Assumed to be the White House as PD.",
+        "sha256": "99f29e704e14b107dfd8027ea1e7099e77fd70d6eb8ebaa64b1a5a68cf488fe5"
+      },
+      "bryan_the_ideal_republic": {
+        "title": "Bryan - The Ideal Republic.ogg",
+        "page": "https://commons.wikimedia.org/wiki/File:Bryan_-_The_Ideal_Republic.ogg",
+        "url": "https://upload.wikimedia.org/wikipedia/commons/3/30/Bryan_-_The_Ideal_Republic.ogg",
+        "bytes": 1614027,
+        "licence": "Public domain",
+        "author": "William Jennings Bryan",
+        "sha256": "0c2f9ef068ee9f10509094abad371d8bce6c1a8732271f5fad6814b8d2ba26ed"
+      }
+    }
+  }
+}

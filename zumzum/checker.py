@@ -91,6 +91,11 @@ def _value(ctx, where, line, spec, v, sel_names):
             ctx.err(line, f"{where}: no sel named {v.name!r}" + _known(sel_names))
             return None
         return v.name
+    if kind == "layer":  # the name only here; that it is a layer built earlier is checked once the layers are read
+        if not isinstance(v, L.Ident):
+            ctx.err(line, f"{where}: expected the name of a layer, got {_show(v)}")
+            return None
+        return v.name
     raise AssertionError(kind)
 
 
@@ -225,6 +230,8 @@ def check(src, duration=None, sr=None):
                 ctx.err(line, f"node {n}: 'at' has too many selection calls")
         elif c.name in OPS and OPS[c.name].get("needs_at"):
             ctx.err(line, f"node {n}: {c.name} needs 'at <selection>' (the region it works on)")
+        if at is not None and c.name in OPS and OPS[c.name].get("no_at"):
+            ctx.err(line, f"node {n}: {c.name} works on the whole layer and takes no 'at'")
         if a is not None and c.name in OPS and OPS[c.name]["domain"] == "time" and _has_frequency(a):
             ctx.err(line, f"node {n}: {c.name} works on the waveform, so its 'at' must be time-only "
                           "(time(...), and / or / not of those); a band would not limit it")
@@ -245,6 +252,14 @@ def check(src, duration=None, sr=None):
         out.layers.append((n, list(chain)))
     if uses > LIMITS["op_uses"]:
         ctx.err(prog.layers[-1][2], f"more than {LIMITS['op_uses']} node uses over all layers")
+    for i, (n, chain, line) in enumerate(prog.layers):  # a layer param names a layer built before this one
+        before = [m for m, _, _ in prog.layers[:i]]
+        for o in chain:
+            node = out.ops.get(o)
+            for k, spec in (OPS[node["op"]]["params"].items() if node else ()):
+                if spec[0] == "layer" and node["params"].get(k) is not None and node["params"][k] not in before:
+                    ctx.err(line, f"layer {n}: node {o}: {node['op']}.{k} names {node['params'][k]!r}, which is not "
+                                  "a layer written above this one" + _known(before))
     layer_names = [n for n, _, _ in prog.layers]
     if not layer_names:
         ctx.err(1, "a program needs at least one layer (layer main = op1 -> op2)")
