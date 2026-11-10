@@ -51,6 +51,7 @@ spectrograms before and after), `talk.json` (the numbers before and after) and a
 
 - [docs/guide.md](docs/guide.md): the full walkthrough (the language, the examples, asking in words).
 - [docs/spec.md](docs/spec.md): the language definition.
+- [CHANGELOG.md](CHANGELOG.md): what changed, and when.
 
 ## Licence
 
