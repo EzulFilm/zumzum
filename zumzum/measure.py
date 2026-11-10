@@ -133,6 +133,41 @@ def _hum_text(what, v, min_db, gone):
     return f"{what} went down {v:.1f} dB and still stands above the neighbouring bins (needed >= {min_db:g} dB, or gone)"
 
 
+def filled_regions(Pa, M, times, freqs, context_s):
+    """For each connected region of mask M (> 0.5): its energy after vs what its surroundings predict (the mean power
+    per bin, frame by frame, in the context_s before and after it, same frequency rows, outside every region, times
+    the region's cells per row). below_db > 0: the region is that far under its surroundings (None: no surroundings)."""
+    from scipy import ndimage
+    inside = M > 0.5
+    lab, n = ndimage.label(inside, structure=np.ones((3, 3)))
+    dt = times[1] - times[0] if len(times) > 1 else 1.0
+    k = max(1, int(round(context_s / dt)))
+    out = []
+    for i, sl in enumerate(ndimage.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        fs, ts = sl
+        reg = lab == i
+        cells = reg[fs].sum(axis=1)  # cells per frequency row
+        lo, hi = max(0, ts.start - k), min(Pa.shape[1], ts.stop + k)
+        around = np.zeros(Pa.shape[1], bool)
+        around[lo:ts.start] = around[ts.stop:hi] = True
+        ok = ~inside[fs][:, around]
+        nb = Pa[fs][:, around]
+        have = ok.sum(axis=1)
+        row = {"t_s": [round(float(times[ts.start]), 2), round(float(times[ts.stop - 1]), 2)],
+               "f_hz": [round(float(freqs[fs.start]), 1), round(float(freqs[fs.stop - 1]), 1)]}
+        if (have > 0).sum() == 0:
+            row["below_db"] = None
+        else:
+            mean = np.where(have > 0, (nb * ok).sum(axis=1) / np.maximum(have, 1), 0.0)
+            want = float((mean * cells)[have > 0].sum())
+            got = float((Pa * reg)[fs][have > 0].sum())
+            row["below_db"] = round(_db(want) - _db(got), 2)
+        out.append(row)
+    return out
+
+
 def run_checks(prog, before, outputs, sr):
     results = []
     size, hop = prog.size, prog.hop
@@ -258,6 +293,39 @@ def run_checks(prog, before, outputs, sr):
                                   f"{-p['floor_db']:g} dB of the loudest; allowed <= {p['max_over_db']:g}), "
                                   f"{100 * share:.3f} % of {n_cells} cells over +0.1 dB; total excess {ex:.1f} dB of "
                                   f"the layer (allowed <= {p['max_excess_db']:g})"})
+        elif kind == "filled":
+            Pb, Pa = power("before", before), power("after:" + c["layer"], after)
+            freqs, times = bin_freqs(size, sr), frame_times(Pb.shape[1], size, hop, sr)
+            M = core(sel_mask(prog.sels[p["at"]], freqs, times), prog.overlap)
+            rows = filled_regions(Pa, M, times, freqs, p["context_ms"] / 1000)
+            meas = [x for x in rows if x["below_db"] is not None]
+            if not meas:
+                r.update({"pass": False, "value": None, "valid": False,
+                          "text": f"{p['at']}: no region with surroundings to compare against"})
+            else:
+                lo, hi = p["max_below_db"], p["max_above_db"]
+                bad = [x for x in meas if x["below_db"] > lo or -x["below_db"] > hi]
+                worst = max(meas, key=lambda x: max(x["below_db"] - lo, -x["below_db"] - hi))
+                where = lambda x: (f"{x['t_s'][0]:.2f}..{x['t_s'][1]:.2f} s, {x['f_hz'][0]:.0f}..{x['f_hz'][1]:.0f} Hz "  # noqa: E731
+                                   f"{-x['below_db']:+.1f} dB")
+                limits = f"{lo:g} dB under" + (f" or {hi:g} dB over" if hi < 200 else "")
+                r.update({"pass": not bad, "value": round(worst["below_db"], 2), "regions": rows,
+                          "text": f"{p['at']}: {len(meas)} regions, {len(bad)} more than {limits} their surroundings"
+                                  + (": " + "; ".join(where(x) for x in bad[:8]) if bad else
+                                     f"; worst {where(worst)}")})
+        elif kind == "mains_hum_drop" and np.atleast_2d(before).shape[1] < 4096:
+            r.update({"pass": False, "value": 0.0, "text": "hum not measurable: fewer than 4096 samples"})
+        elif kind == "mains_hum_drop":
+            cands = []
+            for m in (50.0, 60.0):
+                f0, eb, fb = hum_excess(before, sr, m, p["harmonics"])
+                cands.append((eb / max(fb, 1e-30), f0, eb))
+            _, f0, eb = max(cands)  # the series standing higher above its neighbours in the input
+            _, ea, fa = hum_excess(after, sr, f0, p["harmonics"], search=0)
+            v = min(120.0, _db(eb) - _db(ea)) if eb > 0 else 0.0
+            gone = ea < 0.1 * fa
+            r.update({"pass": v >= p["min_db"] or gone, "value": round(v, 2), "f0_hz": round(f0, 2), "text": _hum_text(
+                f"mains hum (the input's stronger series: {f0:.2f} Hz) x{p['harmonics']}", v, p["min_db"], gone)})
         results.append(r)
     return results
 

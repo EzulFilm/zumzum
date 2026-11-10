@@ -4,6 +4,7 @@ summary JSON; the committed record is docs/live_runs/.
 
     ZUMZUM_DRIVER=openweight ZUMZUM_LLM_URL=http://127.0.0.1:8091/v1 python tools/live_run.py [name ...]
     ZUMZUM_DRIVER=rules python tools/live_run.py
+    ZUMZUM_DRIVER=file ZUMZUM_ANSWERS=answers python tools/live_run.py   # a person plays the model
 """
 
 import json
@@ -18,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 import numpy as np  # noqa: E402
 
 from zumzum.audio import save  # noqa: E402
-from zumzum.llm import edit_loop, make_provider  # noqa: E402
+from zumzum.llm import FileProvider, NeedAnswer, edit_loop, make_provider  # noqa: E402
 from zumzum.sheets import sheet  # noqa: E402
 from tools.fetch_audio import fetch  # noqa: E402
 from tools.make_examples import build  # noqa: E402
@@ -44,7 +45,14 @@ def main(names):
             x = x * 0.95 / np.max(np.abs(x))
         print(f"{name}: {NOTES[name]}", flush=True)
         t0 = time.time()
-        r = edit_loop(NOTES[name], x, sr, provider, max_iters=3, log=lambda s: print(s, flush=True))
+        if driver == "file":  # one answer folder per note: <ZUMZUM_ANSWERS>/<name>/v<n>_answer.txt
+            provider = FileProvider(Path(os.environ.get("ZUMZUM_ANSWERS") or ROOT / "out" / "answers") / name,
+                                    os.environ.get("ZUMZUM_MODEL") or "file")
+        try:
+            r = edit_loop(NOTES[name], x, sr, provider, max_iters=3, log=lambda s: print(s, flush=True))
+        except NeedAnswer as e:
+            print(f"  -> waiting for an answer: {e}", flush=True)
+            continue
         d = out / name
         d.mkdir(parents=True, exist_ok=True)
         for v in r["versions"]:
@@ -64,6 +72,7 @@ def main(names):
         rows.append(row)
         print(f"  -> {'DONE' if r['done'] else 'not done'} after {len(r['versions'])} version(s), {row['seconds']} s",
               flush=True)
+    out.mkdir(parents=True, exist_ok=True)
     (out / "summary.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
 

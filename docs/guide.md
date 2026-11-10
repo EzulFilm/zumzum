@@ -217,7 +217,9 @@ The recordings are public domain or CC0 files from Wikimedia Commons, listed wit
 `tools/live_run.py` runs the five example inputs with a plain note each, such as "There is a mains hum under the
 voice. Remove it, keep the voice as it is." Fixed word rules in [zumzum/notes.py](../zumzum/notes.py) turn the note
 into checks, so the goal is measured the same way whoever writes the program. Hum has to drop at least 20 dB, hiss
-at least 6 dB, and a kept voice or piano band has to stay within 3 dB. For hum, hiss and drums, a dB amount in the
+at least 6 dB, and a kept voice or piano band has to stay within 3 dB. The rules read phrases, not single words:
+"buzz" means mains hum only next to words such as mains, electrical or power, and a note about a phone counts
+only tones at telephone frequencies. For hum, hiss and drums, a dB amount in the
 note replaces the default. `notes.py` has every trigger word and band.
 
 ```
@@ -227,7 +229,8 @@ ZUMZUM_DRIVER=openweight ZUMZUM_LLM_URL=http://127.0.0.1:8091/v1 python tools/li
 
 Without names it runs all five (in PowerShell, set the variable first: `$env:ZUMZUM_DRIVER = "rules"`). `rules`
 needs no model; `openweight` talks to any OpenAI-compatible chat server running a local model, such as llama.cpp's
-`llama-server`. The model never hears the sound. It gets the note and some measurements (levels, noise floor, quiet
+`llama-server`. With `ZUMZUM_DRIVER=file` a person or another program plays the model: each prompt is written
+to a file under `ZUMZUM_ANSWERS`, and the answer is read from the file next to it. The model never hears the sound. It gets the note and some measurements (levels, noise floor, quiet
 spans, hum, click count, steady tones) and answers with a Zumzum program, which is checked like any other. After
 each try it gets the failed checks and checker errors back as text, for up to three versions.
 

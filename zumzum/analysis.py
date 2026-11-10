@@ -60,7 +60,7 @@ def analyze(audio, sr):
         "quiet_spans_s": [[round(s, 2), round(e, 2)] for s, e in spans[:3]],
         "hum": hum if hum and hum["above_floor_db"] >= 6 else None,
         "clicks": clicks, "clicks_per_min": round(clicks / max(n / sr / 60, 1e-9), 1),
-        "tonal_events": tonal_events(P, freqs, times, max_events=16),
+        "tonal_events": tonal_events(P, freqs, times, max_events=64),  # the summary shows 8; a note's time window may need the rest
     }
 
 

@@ -3,7 +3,8 @@
 text that goes through the checker like any other input.
 
 Drivers (ZUMZUM_DRIVER): `openweight` (an OpenAI-compatible /chat/completions server, e.g. llama.cpp's
-llama-server on 127.0.0.1, at ZUMZUM_LLM_URL), `rules` (deterministic, no model), or a ScriptedProvider in tests.
+llama-server on 127.0.0.1, at ZUMZUM_LLM_URL), `rules` (deterministic, no model), `file` (a person or an outside
+program writes each answer to a file), or a ScriptedProvider in tests.
 There is no paid-API driver; any OpenAI-compatible server can be used through `openweight`.
 """
 
@@ -212,13 +213,38 @@ class ScriptedProvider:
         return self.answers.pop(0)
 
 
+class NeedAnswer(Exception):
+    """FileProvider has no answer for this turn yet; the prompt was written next to where the answer goes."""
+
+
+class FileProvider:
+    """A person (or an outside model) plays the model: answer n is read from <dir>/v<n>_answer.txt. When it is
+    missing, the system and user prompts are written to <dir>/v<n>_prompt.txt and NeedAnswer is raised, so the
+    loop can be re-run once the answer is written. The loop is deterministic, so a re-run reaches the same turn."""
+
+    def __init__(self, folder, model="file"):
+        from pathlib import Path
+        self.dir, self.n, self.last_usage = Path(folder), 0, {"model": model}
+
+    def complete(self, system, user):
+        self.n += 1
+        ans = self.dir / f"v{self.n}_answer.txt"
+        if ans.exists():
+            return ans.read_text(encoding="utf-8")
+        self.dir.mkdir(parents=True, exist_ok=True)
+        (self.dir / f"v{self.n}_prompt.txt").write_text(f"SYSTEM:\n{system}\n\nUSER:\n{user}\n", encoding="utf-8")
+        raise NeedAnswer(str(ans))
+
+
 def make_provider(driver=None):
     driver = driver or os.environ.get("ZUMZUM_DRIVER") or "rules"
     if driver == "openweight":
         return OpenWeightProvider()
     if driver == "rules":
         return RulesProvider()
-    raise ValueError(f"unknown ZUMZUM_DRIVER {driver!r} (openweight, rules)")
+    if driver == "file":
+        return FileProvider(os.environ.get("ZUMZUM_ANSWERS") or "answers", os.environ.get("ZUMZUM_MODEL") or "file")
+    raise ValueError(f"unknown ZUMZUM_DRIVER {driver!r} (openweight, rules, file)")
 
 
 def _user_prompt(note, a, feedback=None, previous=None):
@@ -271,7 +297,7 @@ def edit_loop(note, audio, sr, provider, max_iters=3, log=print):
         outs, info = render(prog, audio, sr)
         res = run_checks(prog, np.atleast_2d(audio), outs, sr)
         dmg = damage(audio, outs[prog.output], prog, sr)
-        v.update({"checks": [{k: (bool(x) if k == "pass" else float(x) if k == "value" else x)
+        v.update({"checks": [{k: (bool(x) if k == "pass" else (None if x is None else float(x)) if k == "value" else x)
                               for k, x in r.items()} for r in res], "damage": dmg, "info": info,
                   "output": outs[prog.output]})
         v["status"] = request_status(goals, res, dmg)

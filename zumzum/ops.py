@@ -193,6 +193,20 @@ CHECKS = {
                                 "loudness, 10th to 95th percentile, pauses gated out) is at most max_lu; a levelled "
                                 "voice is about 3-6 LU",
                        "params": {"max_lu": num(0, 40, 6, "largest loudness range")}},
+    "mains_hum_drop": {"about": "mains hum whose frequency is not known: the series (50 or 60 Hz and its harmonics) that "
+                                "stands higher above the neighbouring bins in the input is the one measured, then as "
+                                "hum_drop (fell by min_db, or is no longer above the neighbouring bins)",
+                       "params": {"harmonics": int_(1, 40, 10, "harmonics counted"),
+                                  "min_db": num(0, 120, 20, "required drop")}},
+    "filled": {"about": "each separate region of the selection (a healed box) ends no more than max_below_db under what "
+                        "its surroundings predict (and, with max_above_db, no more than that over them): the level "
+                        "just before and after it in time, at the same "
+                        "frequencies, outside every region; a removed tone lands at the surrounding level, a heal that "
+                        "also took the voice under it lands well below",
+               "params": {"at": sel(None, "a sel name"),
+                          "context_ms": num(20, 2000, 150, "how far before and after each region is looked at"),
+                          "max_below_db": num(0, 200, 6, "largest drop under the surroundings' level"),
+                          "max_above_db": num(0, 200, 200, "largest rise over it (3: a tone in it is gone)")}},
 }
 
 LIMITS = {

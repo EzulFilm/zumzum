@@ -176,6 +176,17 @@ def _check_span(ctx, where, line, name, p):
         ctx.err(line, f"{where}: {name}.f_hz starts at {f[0]:g} Hz, above the Nyquist frequency ({ctx.sr / 2:g} Hz)")
 
 
+def _check_node_spans(ctx, where, line, name, p):
+    for key, v in p.items():
+        if v is None:
+            continue
+        if key.endswith("t_s") and ctx.duration is not None and v[0] >= ctx.duration:
+            ctx.err(line, f"{where}: {name}.{key} starts at {v[0]:g} s, after the end of the audio ({ctx.duration:g} s)")
+        elif key.endswith("f_hz") and ctx.sr is not None and v[0] >= ctx.sr / 2:
+            ctx.err(line, f"{where}: {name}.{key} starts at {v[0]:g} Hz, above the Nyquist frequency "
+                          f"({ctx.sr / 2:g} Hz)")
+
+
 def check(src, duration=None, sr=None):
     """Check program text. `duration` (s) and `sr` (Hz), when the host knows them, catch spans outside the audio.
     Returns `Checked`; raises CheckError with every problem found."""
@@ -252,6 +263,11 @@ def check(src, duration=None, sr=None):
         out.layers.append((n, list(chain)))
     if uses > LIMITS["op_uses"]:
         ctx.err(prog.layers[-1][2], f"more than {LIMITS['op_uses']} node uses over all layers")
+    for n, c, _, _, line in prog.ops:  # spans inside node params (profile_t_s, bands) against the file
+        if n in out.ops:
+            given = {k for k, _, _ in c.args}  # only what the program wrote; defaults are not errors
+            _check_node_spans(ctx, f"node {n}", line, c.name,
+                              {k: v for k, v in out.ops[n]["params"].items() if k in given})
     for i, (n, chain, line) in enumerate(prog.layers):  # a layer param names a layer built before this one
         before = [m for m, _, _ in prog.layers[:i]]
         for o in chain:
