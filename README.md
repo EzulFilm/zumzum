@@ -5,8 +5,8 @@ and what has to be true afterwards, for example that the hum dropped by 30 dB an
 Zumzum checks the program before running it, renders it with a NumPy reference engine, then measures each of those
 conditions on the result.
 
-This started with old recordings, like the 1888 wax cylinder below. I wanted each cleanup written down as a program
-I could read again later, with the result measured instead of judged by ear alone. Programs can also be written by
+This started with old recordings, like the 1888 wax cylinder below. We wanted each cleanup written down as a program
+we could read again later, with the result measured instead of judged by ear alone. Programs can also be written by
 simple keyword rules or by a local AI model; they go through the same checker as a hand-written one. So far it
 handles hum, hiss, clicks, short tones such as phone dialling, turning drums down under other music, and bringing a
 file to a delivery loudness.
