@@ -157,3 +157,36 @@ def test_hum_text_says_which_way_it_passed():
     t = _hum_text("hum", 25.1, 30, True)
     assert "no longer above the neighbouring bins, which passes" in t and "needed" not in t
     assert "still stands above" in _hum_text("hum", 5.0, 30, False)
+
+
+# ---- rumble and keypad tones in the rules driver
+
+def _goal_names(note):
+    return [g["goal"] for g in note_goals(note, {"tonal_events": [], "hum": None})[2]]
+
+
+def test_rumble_is_read_from_phrases():
+    for note in ("There's a low rumble underneath, like traffic or a fan.", "low-frequency noise from the air con",
+                 "you can hear traffic noise underneath"):
+        assert "rumble" in _goal_names(note), note
+    for note in ("I am a fan of this recording", "the wind section is too quiet"):
+        assert "rumble" not in _goal_names(note), note
+
+
+def test_rules_driver_has_nodes_for_rumble_keypad_tones_and_unknown_mains():
+    import json
+    from zumzum.checker import check
+    from zumzum.llm import RulesProvider, extract
+    a = {"peak_dbfs": -10.5, "hum": None, "quiet_spans_s": [], "clicks": 0,
+         "tonal_events": [{"t_s": [6.2, 6.33], "f_hz": 1209.0, "above_db": 30},
+                          {"t_s": [6.2, 6.33], "f_hz": 697.0, "above_db": 28}]}
+    ask = lambda note: extract(RulesProvider().complete(  # noqa: E731
+        "", f"Note: {note}\nAnalysis: x\nAnalysis JSON: {json.dumps(a)}"))[0]
+    prog = ask("there is a low rumble underneath, like traffic")
+    assert "gain(db: -30) at rule_low" in prog and check(prog, duration=15, sr=SR)
+    prog = ask("Someone dials a phone at about 0:06. Remove the dial tones, keep the voice.")
+    assert "heal(direction: time, context_ms: 60) at rule_tones" in prog and check(prog, duration=15, sr=SR)
+    prog = ask("there is a mains hum all the way through")
+    assert "node h50 = dehum(f0_hz: 50" in prog and "node h60 = dehum(f0_hz: 60" in prog
+    assert check(prog, duration=15, sr=SR)
+    assert "gain(db: 0)" in ask("the guitar tone is lovely, keep it")  # nothing asked: nothing done

@@ -4,6 +4,9 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-10
 
+- The rules driver (the loop without a model) now takes its nodes from the same phrase rules that set the checks. We
+  added a rule for rumble (a fixed low cut under 75 Hz) and one that removes keypad and dial tones by healing the
+  boxes around them. When the mains frequency is unknown it writes both the 50 Hz and the 60 Hz hum nodes.
 - We added `loudness`: one gain that brings a layer to a loudness target, capped by a true-peak ceiling. It does not
   limit or compress. New checks: `loudness`, `true_peak`, `loudness_range`, `rms`, `noise_floor`.
 - We added `tools/fix.py --spec` and `tools/batch.py`: bring a file, or a folder, to the published delivery targets

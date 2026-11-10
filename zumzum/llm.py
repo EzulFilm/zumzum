@@ -132,15 +132,28 @@ class RulesProvider:
     def complete(self, system, user):
         note = re.search(r"Note: (.*?)\nAnalysis: ", user, re.S).group(1).lower()  # a note may span lines
         a = json.loads(re.search(r"Analysis JSON: (.*)", user).group(1))
-        ops = []
-        if "hum" in note or "buzz" in note:
-            f0 = (a.get("hum") or {}).get("f0_hz", 60)
-            ops.append(f"node h = dehum(f0_hz: {round(f0)}, harmonics: 16, depth_db: 50)")
-        if "click" in note or "crackle" in note:
+        sels, _, goals = note_goals(note, a)  # the same phrase rules that set the goals choose the nodes
+        want = {g["goal"] for g in goals}
+        ops, own = [], []
+        if "hum" in want:
+            f0 = (a.get("hum") or {}).get("f0_hz")
+            named = 60 if re.search(r"\b60 ?hz\b", note) else 50 if re.search(r"\b50 ?hz\b", note) else None
+            fs = [round(f0)] if f0 else [named] if named else [50, 60]  # unknown mains: both series
+            for f in fs:
+                ops.append(f"node {'h' if len(fs) == 1 else f'h{f}'} = dehum(f0_hz: {f}, harmonics: 16, depth_db: 50)")
+        if "clicks" in want:
             ops.append("node c = declick()")
-        if "hiss" in note or "noise" in note:
+        if "rumble" in want:
+            own.append("sel rule_low = band(f_hz: 0..75, feather_hz: 15)")
+            ops.append("node r = gain(db: -30) at rule_low")
+        if "tones" in want:
+            box = next((ln.split("=", 1)[1].strip() for ln in sels if ln.startswith("sel note_sel_tones")), None)
+            if box:  # the note's own tone boxes, rebuilt from just before and after each
+                own.append(f"sel rule_tones = {box}")
+                ops.append("node t = heal(direction: time, context_ms: 60) at rule_tones")
+        if "noise" in want:
             ops.append("node d = denoise(mode: mmse, reduce_db: 12)")
-        if "drum" in note:
+        if "drums" in want:
             ops.append("node p = split_hp(part: harmonic, rest_db: -12, time_ms: 800, freq_hz: 1000)")
         if not ops:
             ops.append("node g = gain(db: 0)")
@@ -152,13 +165,14 @@ class RulesProvider:
             declared = {re.match(r"\s*\w+\s+(\w+)", lines[a]).group(1) for w, a, b in stmts
                         if w in ("sel", "node", "layer", "check") and re.match(r"\s*\w+\s+(\w+)", lines[a])}
             new = [o for o in ops if o.split()[1] not in declared]
+            new_sels = [o for o in own if o.split()[1] not in declared]
             names = [o.split()[1] for o in new]
             lines = _add_to_output(lines, names)
             after = max([b for w, a, b in stmts if w == "node"] or [0])  # after the last line of the last node
-            prog = "\n".join(lines[:after + 1] + new + lines[after + 1:]) + "\n"
+            prog = "\n".join(lines[:after + 1] + new_sels + new + lines[after + 1:]) + "\n"
             return f"```zumzum\n{prog}```\nmessage: rules driver kept the previous program, added: {', '.join(names) or 'nothing'}"
         names = [o.split()[1] for o in ops]
-        prog = "zumzum 0.1\n" + "\n".join(ops) + f"\nlayer main = {' -> '.join(names)}\n"
+        prog = "zumzum 0.1\n" + "\n".join(own + ops) + f"\nlayer main = {' -> '.join(names)}\n"
         return f"```zumzum\n{prog}```\nmessage: rules driver: {', '.join(names)}"
 
 

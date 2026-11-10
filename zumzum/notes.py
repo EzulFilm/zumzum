@@ -71,6 +71,12 @@ def note_goals(note, analysis):
                  f"noise in the quiet span {a:g}..{b:g} s down at least {need:g} dB")
         else:
             goal("noise", [], "no quiet span to measure the noise in", status="unmeasurable")
+    # rumble: the word, or low-frequency noise, or a traffic / fan / wind / engine sound with a noise word
+    if _w(r"rumbl\w*", n) or (_w(r"low[- ]?frequency|low[- ]end|sub-?bass|very low", n) and _w(r"noise|drone|thump\w*|hum", n)) \
+            or (_w(r"traffic|fan|fans|air ?con\w*|wind|engine|truck|trucks|lorry|lorries", n)
+                and _w(r"noise|drone|droning|underneath|under it|low|thump\w*", n)):
+        sels.append("sel note_sel_rumble = band(f_hz: 0..70)")
+        goal("rumble", ["check note_rumble = drop(at: note_sel_rumble, min_db: 10)"], "under 70 Hz down at least 10 dB")
     if _w(r"clicks?|crackles?|crackling|pops?", n):
         goal("clicks", [f"check note_clicks = clicks(max: {max(0, analysis.get('clicks', 0) // 3)})"],
              "at most a third of the clicks left")
