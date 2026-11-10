@@ -15,6 +15,9 @@ handles hum, hiss, clicks, short tones such as phone dialling, and turning drums
 The program on the left is [examples/cylinder_denoise.zz](examples/cylinder_denoise.zz). It learns the noise from
 one pause, and the hiss in another pause goes down about 23 dB while the band with the words changes by 0.4 dB.
 
+**Contents:** [A program](#a-program) · [Quick start](#quick-start) · [Your own file](#your-own-file) ·
+[The examples](#the-examples) · [Asking in words](#asking-in-words) · [Limits](#limits)
+
 ## A program
 
 ```
@@ -70,6 +73,11 @@ The tests should all pass in under a minute. `fetch_audio.py` needs a network co
 check passed and the damage gate is clear. `python tools/make_examples.py hum_voice` renders just one. Each example
 folder gets `before.wav`, `after.wav`, `removed.wav` (what the edit took out), `results.json` with every check, and
 `sheet.png` with the waveform, spectrograms before and after, and a map of what changed.
+
+![The sheet Zumzum writes for the hum example: waveform, spectrograms before and after, a map of what changed, and the three checks](docs/img/readme_sheet.png)
+
+This is the sheet for `hum_voice`. The bright horizontal lines in the top spectrogram are the hum; they are gone in
+the second one. The bottom map shows in blue what was removed, and the three lines under it are the checks.
 
 ## Your own file
 
