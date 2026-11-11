@@ -89,3 +89,20 @@ def test_loudness_range_of_steps():
     assert L.loudness_range(np.zeros((1, 2 * SR)), SR) is None
 
 
+
+
+def test_a_loudness_gain_capped_by_the_ceiling_passes_its_own_true_peak_check():
+    """When the ceiling, not the target, decides the gain, the true peak used to land exactly on the ceiling, and a
+    true_peak check at the same ceiling passed or failed by float rounding (9 of 20 real excerpts failed)."""
+    from zumzum.measure import run_checks
+    text = ("zumzum 0.1\nnode n = loudness(target_lufs: -10, max_true_peak_dbtp: -1)\nlayer m = n\n"
+            "check p = true_peak(max_dbtp: -1)\n")
+    for seed in range(20):
+        rng = np.random.default_rng(seed)
+        x = 0.01 * rng.standard_normal((2, SR * 3))
+        x[:, rng.integers(0, SR * 3, 40)] += rng.uniform(0.05, 0.2, 40)  # peaks: the ceiling caps the gain
+        prog = check(text, duration=3, sr=SR)
+        outs, _ = render(prog, x, SR)
+        r = run_checks(prog, x, outs, SR)[0]
+        assert r["pass"], (seed, r["text"])
+        assert -1.02 < r["value"] <= -1.0

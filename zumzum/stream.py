@@ -25,7 +25,7 @@ import soundfile as sf
 from scipy import signal
 
 from . import loudness
-from .engine import EPS, refine_f0, sel_mask
+from .engine import EPS, TP_MARGIN_DB, refine_f0, sel_mask
 from .stft import bin_freqs, n_frames, window
 
 CHUNK_SAMPLES = 1 << 20  # about this many samples of frames are worked at a time (8 MB per array of doubles)
@@ -301,7 +301,7 @@ def run(prog, src, dst, subtype="FLOAT"):
             g, note = 0.0, "no loudness to measure (silent, or under 0.4 s): left as it was"
         else:
             want = p["target_lufs"] - lu
-            g, note = min(want, p["max_true_peak_dbtp"] - tp), None
+            g, note = min(want, p["max_true_peak_dbtp"] - tp - TP_MARGIN_DB), None
         info["loudness"] = {"lufs_before": None if lu is None else round(lu, 2), "gain_db": round(g, 2),
                             "short_by_lu": None if lu is None else round(max(0.0, want - g), 2),
                             "lufs": None if lu is None else round(lu + g, 2), "true_peak_dbtp": round(tp + g, 2), "note": note}

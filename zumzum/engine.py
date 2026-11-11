@@ -378,6 +378,9 @@ def op_declick(x, p, ctx):
     return y
 
 
+TP_MARGIN_DB = 0.01  # the loudness op stays this far under its true-peak ceiling
+
+
 def op_loudness(a, p, ctx):
     """Whole layer toward target_lufs integrated loudness (BS.1770-4 / EBU R 128) with one gain, capped so the true
     peak stays at or under max_true_peak_dbtp. No limiter and no compression: when the peaks leave too little room,
@@ -388,7 +391,9 @@ def op_loudness(a, p, ctx):
         info["note"] = "no loudness to measure (silent, or under 0.4 s): left as it was"
         return a
     want = p["target_lufs"] - lu
-    room = p["max_true_peak_dbtp"] - loudness.true_peak(a, sr)  # the most gain the ceiling allows
+    # the most gain the ceiling allows, less TP_MARGIN_DB: a gain that lands exactly on the ceiling leaves the true
+    # peak equal to it within float rounding, so a true_peak check at the same ceiling passed or failed by chance
+    room = p["max_true_peak_dbtp"] - loudness.true_peak(a, sr) - TP_MARGIN_DB
     g = min(want, room)
     y = a * 10 ** (g / 20)
     out = loudness.integrated(y, sr)

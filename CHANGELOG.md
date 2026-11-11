@@ -4,6 +4,9 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-11
 
+- Fixed: when the true-peak ceiling, not the target, decided the loudness gain, the result sat exactly on the
+  ceiling, so a `true_peak` check at the same ceiling passed or failed by rounding. `loudness` now stays 0.01 dB under
+  its ceiling.
 - We added a faster path that uses little memory for simple chains (`tools/fast.py`, `zumzum/stream.py`): hum
   removal, a gain on a band and one loudness gain run from file to file in blocks, with the same output as the
   reference engine.
