@@ -109,6 +109,17 @@ python tools/convert.py examples/mp3_record.zz sandman_60s.mp3 sandman_clean.mp3
 Each example is tuned to its own recording. Before using one on another file, change its `time(...)`,
 `profile_t_s` and band values.
 
+### Long files
+
+`tools/convert.py` holds the whole file in memory. For a simple program (one layer of `dehum` and `gain` nodes, the
+gain on a band or on everything, and at most one `loudness` node at the end) there is a path that works the file in
+blocks:
+```
+python tools/fast.py program.zz input.wav output.wav
+```
+It reads and writes WAV or FLAC, gives the same output as the reference engine, and refuses any other program with
+the reason. It does not run the checks; use `tools/convert.py` for those.
+
 ## Delivery rules: `fix --spec`
 
 Podcast platforms, audiobook stores and broadcasters publish loudness targets, and files miss them every day.

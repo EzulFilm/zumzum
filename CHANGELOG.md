@@ -4,6 +4,9 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-11
 
+- We added a faster path that uses little memory for simple chains (`tools/fast.py`, `zumzum/stream.py`): hum
+  removal, a gain on a band and one loudness gain run from file to file in blocks, with the same output as the
+  reference engine.
 - The damage gate now refuses a version where `declick` was run on a clipped recording and mostly rewrote the
   clipped peaks. We found that this leaves a file further from the original than it was, while every check stayed
   silent. A few clicks that hit the ceiling on their own are not counted as clipping.
