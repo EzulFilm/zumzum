@@ -339,3 +339,40 @@ def test_hum_text_says_which_way_it_passed():
     t = _hum_text("hum", 25.1, 30, True)
     assert "no longer above the neighbouring bins, which passes" in t and "needed" not in t
     assert "still stands above" in _hum_text("hum", 5.0, 30, False)
+
+
+# ---- damage gate: declick on a clipped recording
+
+def _clipped_voice_like():
+    rng = np.random.default_rng(5)
+    t = np.arange(SR * 4) / SR
+    x = np.sin(2 * np.pi * 140 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t)) + 0.2 * np.sin(2 * np.pi * 420 * t)
+    x = x + 0.01 * rng.standard_normal(len(t))
+    c = np.quantile(np.abs(x), 0.995)
+    return (np.clip(x, -c, c) * 0.3 / c)[None, :]
+
+
+def test_gate_refuses_declick_that_rewrites_the_flat_tops_of_a_clipped_recording():
+    from zumzum.measure import programme_clipping
+    x = _clipped_voice_like()
+    clipped, mask, _ = programme_clipping(x, SR)
+    assert clipped
+    prog = check("zumzum 0.1\nnode c = declick()\nlayer main = c\n", duration=4, sr=SR)
+    at_tops = x.copy()
+    at_tops[mask] *= 0.9  # a repair that rewrote the flat tops
+    assert any("treating clipping as clicks" in d for d in damage(x, at_tops, prog, SR))
+    elsewhere = x.copy()
+    quiet = np.flatnonzero(np.abs(x[0]) < 0.05)[:200]
+    elsewhere[0, quiet] *= 0.5  # a repair away from the flat tops is not refused
+    assert damage(x, elsewhere, prog, SR) == []
+    other = check("zumzum 0.1\nnode g = gain(db: -1)\nlayer main = g\n", duration=4, sr=SR)
+    assert damage(x, at_tops, other, SR) == []  # the rule is about declick only
+
+
+def test_a_few_clipped_clicks_are_not_a_clipped_recording():
+    from zumzum.measure import programme_clipping
+    rng = np.random.default_rng(6)
+    x = 0.05 * rng.standard_normal(SR * 2)
+    for p in rng.integers(100, len(x) - 100, 30):
+        x[p:p + 5] = 0.9  # clicks that hit the ceiling, quiet sound around them
+    assert not programme_clipping(x[None, :], SR)[0]

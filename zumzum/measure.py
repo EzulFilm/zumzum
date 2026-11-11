@@ -330,6 +330,40 @@ def run_checks(prog, before, outputs, sr):
     return results
 
 
+FLAT_LEVEL = 0.99999       # a sample counts as flat at the peak within 0.001 % of it
+CLIP_MIN_RUNS = 10         # this many flat tops or more, and
+CLIP_SURROUND_DB = -12.0   # sound around them within 12 dB of the peak: the programme is clipped
+DECLICK_ON_CLIP_PCT = 50.0  # this share or more of the samples declick rewrote lie within 1 ms of a flat top
+
+
+def _flat_runs(mask):
+    """(start, end) of each run of 3 or more True values."""
+    d = np.diff(np.concatenate([[0], mask.astype(np.int8), [0]]))
+    return [(int(a), int(b) - 1) for a, b in zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)) if b - a >= 3]
+
+
+def programme_clipping(x, sr):
+    """-> (is the programme clipped, mask of the flat-top samples (channels x samples), text). Flat tops are runs of
+    3 or more samples at the peak. A clipped programme has many of them with loud sound around them (the 5 ms each
+    side, leaving out 1 ms); a few clicks that hit the ceiling stand alone in quieter sound and do not count."""
+    a = np.atleast_2d(np.asarray(x, float))
+    pk = float(np.max(np.abs(a))) if a.size else 0.0
+    mask = np.zeros(a.shape, bool)
+    if pk <= 0:
+        return False, mask, "silent"
+    w, g, lv, n_runs = int(0.005 * sr), int(0.001 * sr), [], 0
+    for ci, ch in enumerate(a):
+        for s0, e0 in _flat_runs(np.abs(ch) >= FLAT_LEVEL * pk):
+            mask[ci, s0:e0 + 1] = True
+            n_runs += 1
+            seg = np.concatenate([ch[max(0, s0 - w):max(0, s0 - g)], ch[e0 + g:e0 + w]])
+            if seg.size:
+                lv.append(10 * np.log10(max(float(np.mean(seg ** 2)), 1e-20) / pk ** 2))
+    around = float(np.median(lv)) if lv else -200.0
+    yes = n_runs >= CLIP_MIN_RUNS and around >= CLIP_SURROUND_DB
+    return yes, mask, f"{n_runs} flat tops at the peak, the sound around them {around:.1f} dB under it"
+
+
 def damage(before, after, prog=None, sr=None):
     """Problems that make a version unfit to end the loop, whatever the checks say. A program with a loudness node
     asked for the level change: then "louder" means louder than its loudness target (+1 LU), not louder than the
@@ -352,6 +386,20 @@ def damage(before, after, prog=None, sr=None):
             out.append(f"output is {lu:.1f} LUFS, louder than the program's loudness target {max(targets):g}")
     elif ra > rb * 2:
         out.append(f"output is {_db(ra ** 2) - _db(rb ** 2):.1f} dB louder than the input")
+    declick = [n for n in used if prog.ops[n]["op"] == "declick" and not prog.ops[n]["off"]]
+    if declick and sr and a.shape == b.shape:
+        # a clipped programme read as clicks: declick rewrites samples at and next to the flat tops by interpolation,
+        # which does not rebuild a clipped peak and can leave the file further from the original than it was.
+        # Clicks that hit the ceiling on their own are not counted.
+        clipped, mask, text = programme_clipping(b, sr)
+        if clipped:
+            changed = np.abs(a - b) > 1e-4 * float(np.max(np.abs(b)))
+            k = np.ones(2 * int(0.001 * sr) + 1)  # within 1 ms of a flat top
+            near = np.array([np.convolve(m.astype(float), k, "same") > 0 for m in mask])
+            share = 100.0 * float(near[changed].mean()) if changed.any() else 0.0
+            if share >= DECLICK_ON_CLIP_PCT:
+                out.append(f"the input is clipped ({text}) and {share:.0f} % of what declick rewrote lies at those flat "
+                           "tops: it is treating clipping as clicks, which does not repair it")
     if rb > 0 and ra < rb * 10 ** (-40 / 20):  # any input that has sound, however quiet
         out.append(f"output is {_db(rb ** 2) - _db(ra ** 2):.1f} dB quieter than the input (nearly silent)")
     return out

@@ -2,6 +2,12 @@
 
 What changed in Zumzum, newest first. The language version stays 0.1 until its first breaking change.
 
+## 2026-11-11
+
+- The damage gate now refuses a version where `declick` was run on a clipped recording and mostly rewrote the
+  clipped peaks. We found that this leaves a file further from the original than it was, while every check stayed
+  silent. A few clicks that hit the ceiling on their own are not counted as clipping.
+
 ## 2026-11-10
 
 - The rules driver (the loop without a model) now takes its nodes from the same phrase rules that set the checks. We
