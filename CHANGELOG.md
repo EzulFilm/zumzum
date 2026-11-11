@@ -4,6 +4,8 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-11
 
+- We made `tools/fast.py` measure the program's loudness, true-peak, loudness-range, RMS and hum checks and the
+  damage gate too, from the files and in blocks, with the same results as the whole-file checks.
 - Fixed: when the true-peak ceiling, not the target, decided the loudness gain, the result sat exactly on the
   ceiling, so a `true_peak` check at the same ceiling passed or failed by rounding. `loudness` now stays 0.01 dB under
   its ceiling.

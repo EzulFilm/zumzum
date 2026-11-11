@@ -4,8 +4,9 @@
 
 For programs with one layer of dehum and gain nodes (gain on a band selection or none) and at most one loudness node
 at the end; anything else is refused with the reason (use tools/convert.py). The output equals the reference
-engine's to far below anything audible. The program's checks are not run here: run tools/convert.py for the checks,
-the damage gate, the sheet and the repair record.
+engine's to far below anything audible. The program's checks (loudness, true_peak, loudness_range, rms, hum_drop,
+mains_hum_drop) and the damage gate are measured from the files, also in blocks; for other checks, the sheet and the
+repair record, use tools/convert.py.
 """
 
 import json
@@ -20,6 +21,7 @@ import soundfile as sf  # noqa: E402
 from zumzum.checker import check  # noqa: E402
 from zumzum.errors import CheckError  # noqa: E402
 from zumzum.stream import Unsupported, run  # noqa: E402
+from zumzum.stream_checks import file_checks  # noqa: E402
 
 
 def main(argv):
@@ -41,7 +43,16 @@ def main(argv):
         print(f"not a program for the fast path ({e}); use tools/convert.py")
         return 1
     print(json.dumps(info, indent=1))
-    return 0
+    try:
+        checks, problems = file_checks(prog, src, dst)
+    except Unsupported as e:
+        print(f"checks not measured here ({e}); use tools/convert.py")
+        return 0
+    for c in checks:
+        print(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}: {c['text']}")
+    for d in problems:
+        print(f"DAMAGE  {d}")
+    return 0 if all(c["pass"] for c in checks) and not problems else 1
 
 
 if __name__ == "__main__":

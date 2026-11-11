@@ -27,9 +27,17 @@ def hum_excess(a, sr, f0, harmonics, search=1.0):
     x = np.atleast_2d(a)
     if x.shape[1] < 4096:  # too short to resolve mains hum lines (under 0.1 s): nothing measurable
         return f0, 0.0, 0.0
-    nper = int(min(32768, 2 ** np.floor(np.log2(x.shape[1]))))
-    freqs, P = signal.welch(x, sr, nperseg=nper, axis=-1)
-    P = P.sum(axis=0)
+    freqs, P = signal.welch(x, sr, nperseg=hum_nperseg(x.shape[1]), axis=-1)
+    return hum_excess_psd(freqs, P.sum(axis=0), f0, harmonics, search)
+
+
+def hum_nperseg(n):
+    """Welch segment length for the hum checks on a signal of n samples (n >= 4096)."""
+    return int(min(32768, 2 ** np.floor(np.log2(n))))
+
+
+def hum_excess_psd(freqs, P, f0, harmonics, search=1.0):
+    """hum_excess from a power spectrum already summed over channels (the block-wise checks build it in blocks)."""
     df = freqs[1] - freqs[0]
     if search > 0:
         cands = np.arange(f0 - search, f0 + search + 1e-9, 0.01)

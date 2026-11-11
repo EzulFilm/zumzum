@@ -118,7 +118,10 @@ blocks:
 python tools/fast.py program.zz input.wav output.wav
 ```
 It reads and writes WAV or FLAC, gives the same output as the reference engine, and refuses any other program with
-the reason. It does not run the checks; use `tools/convert.py` for those.
+the reason. It also measures the program's `loudness`, `true_peak`, `loudness_range`, `rms`, `hum_drop` and
+`mains_hum_drop` checks and the damage gate from the files, in blocks, with the same results as `tools/convert.py`;
+the exit code is 0 only when every check passes and the gate finds nothing. For other checks, the sheet and the repair
+record, use `tools/convert.py`.
 
 ## Delivery rules: `fix --spec`
 
