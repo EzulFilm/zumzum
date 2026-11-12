@@ -16,8 +16,10 @@ import soundfile as sf
 from scipy import signal
 
 from . import loudness
-from .measure import _db, _hum_text, hum_excess_psd, hum_nperseg
-from .stream import Meter, Unsupported, plan
+from .engine import dehum_lines, op_dehum, refine_f0, sel_mask
+from .measure import BUDGET_DB, BUDGET_MIN_SHARE, DEHUM_BUDGET_DB, LOW_CUT_TOP_HZ, STEADY_S, _db, _hum_text, hum_excess_psd, hum_nperseg
+from .stft import bin_freqs, window
+from .stream import Meter, Unsupported, _chunks, plan
 
 KINDS = ("loudness", "true_peak", "loudness_range", "rms", "hum_drop", "mains_hum_drop")
 BLOCK = 1 << 16
@@ -63,6 +65,7 @@ class Stats:
     """Everything the supported checks and the gate need from one file."""
 
     def __init__(self, path, need_hum):
+        self.path = path
         with sf.SoundFile(str(path)) as f:
             self.sr, self.nch, self.n = f.samplerate, f.channels, f.frames
             self.finite, self.peak = True, 0.0
@@ -179,6 +182,86 @@ def file_checks(prog, src, dst):
     return results, _damage(prog, b, a)
 
 
+def _steady_rows(rows, hop, sr):
+    """measure._steady for the rows kept (bins x frames)."""
+    k = max(1, int(round(STEADY_S * sr / hop)))
+    if rows.shape[1] <= k:
+        return rows.mean(axis=1)
+    c = np.cumsum(np.concatenate([np.zeros((rows.shape[0], 1)), rows], axis=1), axis=1)
+    return np.percentile((c[:, k:] - c[:, :-k]) / k, 10, axis=1)
+
+
+def budget(prog, src):
+    """measure.budget_problems, reading the input in blocks: for each dehum node and low cut, the power it removes
+    and, for only the bins it touches, the time series that the steady level needs."""
+    return [r["problem"] for r in budget_numbers(prog, src) if r["problem"]]
+
+
+def budget_numbers(prog, src):
+    """Per dehum node and low cut of the program's layer: {"node", "removed", "steady", "total", "problem"}."""
+    out = []
+    with sf.SoundFile(str(src)) as f:
+        sr, nch, n = f.samplerate, f.channels, f.frames
+        for op in [prog.ops[nm] for nm in prog.layers[0][1] if not prog.ops[nm]["off"]]:
+            p = op["params"]
+            size = p.get("fft") or prog.size
+            hop, w, freqs = size // prog.overlap, window(size), bin_freqs(size, sr)
+            is_dehum = op["op"] == "dehum" and op["at"] is None
+            is_cut = (op["op"] == "gain" and p["db"] < 0 and op["at"] is not None and op["at"][0] not in ("not", "and", "or")
+                      and op["at"][1] == "band" and not op["at"][2].get("t_s") and op["at"][2]["f_hz"][1] <= LOW_CUT_TOP_HZ)
+            if not (is_dehum or is_cut):
+                continue
+            total, removed, steady = 0.0, 0.0, 0.0
+            if is_dehum:  # pass 1: the mean spectrum per channel, for f0 (as the op refines it on the whole input)
+                P = np.zeros((nch, len(freqs)))
+                frames = 0
+                for _, fr in _chunks(f, n, size, hop):
+                    for c in range(nch):
+                        X = np.fft.rfft(fr[c] * w, axis=1)
+                        P[c] += (np.abs(X) ** 2).sum(axis=0)
+                    frames += fr.shape[1]
+                f0s = [refine_f0(P[c] / max(frames, 1), freqs, p["f0_hz"], p["harmonics"], p["search_hz"]) for c in range(nch)]
+                lines = [dehum_lines(p, f0s[c], freqs) for c in range(nch)]
+                keep = [np.unique(np.concatenate([np.concatenate([a_, b_]) for a_, b_ in lines[c]]) if lines[c] else
+                                  np.zeros(0, int)) for c in range(nch)]
+                q = [dict(p, f0_hz=f0s[c], search_hz=0) for c in range(nch)]
+            else:
+                M = sel_mask(op["at"], freqs, np.zeros(1))[:, 0] * op["mix"] * (1 - 10 ** (p["db"] / 10))
+                keep = [np.flatnonzero(M > 0)] * nch
+            series = [[] for _ in range(nch)]
+            for _, fr in _chunks(f, n, size, hop):  # pass 2: what the node removes, and the kept bins' power
+                for c in range(nch):
+                    X = np.fft.rfft(fr[c] * w, axis=1).T
+                    PX = np.abs(X) ** 2
+                    total += float(PX.sum())
+                    if is_dehum:
+                        Y = op_dehum(X, q[c], {"freqs": freqs, "info": {}})
+                        removed += float((PX - np.abs(Y) ** 2).sum())
+                    else:
+                        removed += float((PX.sum(axis=1) * M).sum())
+                    series[c].append(PX[keep[c]])
+            for c in range(nch):
+                rows = np.concatenate(series[c], axis=1) if series[c] else np.zeros((len(keep[c]), 0))
+                st = np.zeros(len(freqs))
+                if rows.size:
+                    st[keep[c]] = _steady_rows(rows, hop, sr)
+                frames = rows.shape[1]
+                if is_dehum:
+                    for cut, nb in lines[c]:
+                        steady += float(np.maximum(0.0, st[cut] - np.median(st[nb])).sum()) * frames
+                else:
+                    steady += float((st * M).sum()) * frames
+            what = f"dehum at {p['f0_hz']:g} Hz" if is_dehum else f"the low cut under {op['at'][2]['f_hz'][1]:g} Hz"
+            problem = None
+            margin = DEHUM_BUDGET_DB if is_dehum else BUDGET_DB
+            if total > 0 and removed >= BUDGET_MIN_SHARE * total and removed > steady * 10 ** (margin / 10):
+                problem = (f"{what} removed {_db(removed) - _db(max(steady, 1e-30)):.1f} dB more than the steady "
+                           f"{'hum' if is_dehum else 'low noise'} it targets: it took programme")
+            out.append({"node": op["name"] if "name" in op else what, "what": what, "removed": removed, "steady": steady,
+                        "total": total, "problem": problem})
+    return out
+
+
 def _damage(prog, b, a):
     """measure.damage's rules for the fast path's programs, from the two files' numbers."""
     if not a.finite:
@@ -195,6 +278,7 @@ def _damage(prog, b, a):
             out.append(f"output is {a.lufs:.1f} LUFS, louder than the program's loudness target {max(targets):g}")
     elif ra > rb * 2 and not level:
         out.append(f"output is {_db(ra ** 2) - _db(rb ** 2):.1f} dB louder than the input")
+    out += budget(prog, b.path)
     if rb > 0 and ra < rb * 10 ** (-40 / 20):
         out.append(f"output is {_db(rb ** 2) - _db(ra ** 2):.1f} dB quieter than the input (nearly silent)")
     return out

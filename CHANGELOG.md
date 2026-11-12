@@ -4,6 +4,12 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-12
 
+- We added a change budget to the damage gate: hum and rumble are steady, so a `dehum` node or a low cut (a gain under
+  0 dB on a band that ends at or under 200 Hz) may remove only a fixed amount more than the steady hum or low noise it
+  targets; removing more is reported as taking the programme. The steady level of each bin is its power averaged over
+  0.4 s, then its quietest tenth over the file.
+- We added a voice clean-up preset (`tools/clean_up.py`, `zumzum/preset.py`) that chooses hum removal and a low cut
+  only where its checks find steady hum or rumble, then applies one loudness gain.
 - We changed `dehum` to a fixed notch: each hum line (f0 and its harmonics) is cut by `depth_db` for the whole file,
   the same in every frame, one bin either side of the line, and the default FFT is now 32768. Before, each cut
   followed the level of the neighbouring bins frame by frame. On 20 new test recordings with hum the fixed notch

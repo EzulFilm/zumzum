@@ -123,6 +123,14 @@ the reason. It also measures the program's `loudness`, `true_peak`, `loudness_ra
 the exit code is 0 only when every check passes and the gate finds nothing. For other checks, the sheet and the repair
 record, use `tools/convert.py`.
 
+### A voice clean-up preset
+
+```
+python tools/clean_up.py input.wav output.wav --target -16
+```
+It first measures the recording and keeps hum removal (50 or 60 Hz, never both) and a low cut only where its checks find
+steady hum or rumble; then one loudness gain. It prints what it measured and chose, the checks and the damage gate.
+
 ## Delivery rules: `fix --spec`
 
 Podcast platforms, audiobook stores and broadcasters publish loudness targets, and files miss them every day.

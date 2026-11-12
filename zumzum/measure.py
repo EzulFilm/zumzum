@@ -8,7 +8,7 @@ import numpy as np
 from scipy import ndimage, signal
 
 from . import loudness
-from .engine import detect_clicks, sel_mask
+from .engine import dehum_lines, detect_clicks, op_dehum, sel_mask
 from .stft import bin_freqs, frame_times, stft
 
 
@@ -372,6 +372,79 @@ def programme_clipping(x, sr):
     return yes, mask, f"{n_runs} flat tops at the peak, the sound around them {around:.1f} dB under it"
 
 
+BUDGET_DB = 4.0           # a fixed repair for steady noise may remove at most this much more than the steady part
+# (on fresh test recordings, repairs that helped stayed within 3.3 dB of their budget and repairs that harmed went
+# 5.3 dB or more over it)
+DEHUM_BUDGET_DB = 6.0     # dehum is a fixed notch: it always takes the programme in its narrow bins, so its own margin
+# (on fresh test recordings, dehums that helped were <= 2.9 dB over budget and harmful ones >= 12.4 dB)
+BUDGET_MIN_SHARE = 0.001  # ... counted only when it removes at least this share (-30 dB) of the input's energy
+LOW_CUT_TOP_HZ = 200.0    # a gain under 0 dB on a band that ends at or below this is a low cut (rumble)
+STEADY_S = 0.4            # the steady level of a bin: its power averaged over this long, then its quietest tenth
+
+
+def _steady(P, hop, sr):
+    """Per bin, the level it holds all through: power averaged over STEADY_S, then the 10th percentile over time
+    (minimum statistics, as in Martin 2001). Hum and rumble keep it up; voice, notes and bass let it fall."""
+    k = max(1, int(round(STEADY_S * sr / hop)))
+    if P.shape[1] <= k:
+        return P.mean(axis=1)
+    c = np.cumsum(np.concatenate([np.zeros((P.shape[0], 1)), P], axis=1), axis=1)
+    sm = (c[:, k:] - c[:, :-k]) / k
+    return np.percentile(sm, 10, axis=1)
+
+
+def budget_problems(prog, before, sr):
+    """Change budget: hum and rumble are steady, so a dehum node or a low cut may only remove
+    about the steady part of what it targets. Removing much more means it took programme: voice harmonics at the
+    wrong mains series, the bass of the music under a low cut. Measured on the input alone, with the program's own
+    analysis grid: dehum's removal (the op applied to the input) against the lines' steady excess over their
+    neighbours; a low cut's removal against the band's steady level (_steady)."""
+    if prog is None or sr is None:
+        return []
+    feeds = set(prog.output_mix) if prog.output == "mix" else {prog.output}
+    used = [prog.ops[n] for l, chain in prog.layers if l in feeds for n in chain if not prog.ops[n]["off"]]
+    chans = np.atleast_2d(before)
+    grids = {}
+
+    def grid(size):  # the input on one node's own analysis grid (dehum runs on a long FFT of its own)
+        if size not in grids:
+            hop = size // prog.overlap
+            Xs = [stft(ch, size, hop) for ch in chans]
+            grids[size] = (Xs, hop, bin_freqs(size, sr), sum(float((np.abs(X) ** 2).sum()) for X in Xs))
+        return grids[size]
+
+    out = []
+    for op in used:
+        p = op["params"]
+        Xs, hop, freqs, total = grid(p.get("fft") or prog.size)
+        if op["op"] == "dehum" and op["at"] is None:
+            removed = steady = 0.0
+            for X in Xs:
+                info = {}
+                Y = op_dehum(X, p, {"freqs": freqs, "info": info})
+                removed += float((np.abs(X) ** 2 - np.abs(Y) ** 2).sum())
+                Pm, f0 = _steady(np.abs(X) ** 2, hop, sr), info.get("f0_hz", p["f0_hz"])
+                for cut, nb in dehum_lines(p, f0, freqs):  # the op's own lines
+                    steady += float(np.maximum(0.0, Pm[cut] - np.median(Pm[nb])).sum()) * X.shape[1]
+            what = f"dehum at {p['f0_hz']:g} Hz"
+        elif (op["op"] == "gain" and p["db"] < 0 and op["at"] is not None and op["at"][0] not in ("not", "and", "or")
+              and op["at"][1] == "band" and not op["at"][2].get("t_s") and op["at"][2]["f_hz"][1] <= LOW_CUT_TOP_HZ):
+            M = sel_mask(op["at"], freqs, np.zeros(1))[:, 0] * op["mix"] * (1 - 10 ** (p["db"] / 10))
+            removed = steady = 0.0
+            for X in Xs:
+                P = np.abs(X) ** 2
+                removed += float((P.sum(axis=1) * M).sum())
+                steady += float((_steady(P, hop, sr) * M).sum()) * X.shape[1]
+            what = f"the low cut under {op['at'][2]['f_hz'][1]:g} Hz"
+        else:
+            continue
+        margin = DEHUM_BUDGET_DB if op["op"] == "dehum" else BUDGET_DB
+        if total > 0 and removed >= BUDGET_MIN_SHARE * total and removed > steady * 10 ** (margin / 10):
+            out.append(f"{what} removed {_db(removed) - _db(max(steady, 1e-30)):.1f} dB more than the steady "
+                       f"{'hum' if op['op'] == 'dehum' else 'low noise'} it targets: it took programme")
+    return out
+
+
 def damage(before, after, prog=None, sr=None):
     """Problems that make a version unfit to end the loop, whatever the checks say. A program with a loudness node
     asked for the level change: then "louder" means louder than its loudness target (+1 LU), not louder than the
@@ -408,6 +481,8 @@ def damage(before, after, prog=None, sr=None):
             if share >= DECLICK_ON_CLIP_PCT:
                 out.append(f"the input is clipped ({text}) and {share:.0f} % of what declick rewrote lies at those flat "
                            "tops: it is treating clipping as clicks, which does not repair it")
+    if sr and a.shape == b.shape:
+        out += budget_problems(prog, b, sr)
     if rb > 0 and ra < rb * 10 ** (-40 / 20):  # any input that has sound, however quiet
         out.append(f"output is {_db(rb ** 2) - _db(ra ** 2):.1f} dB quieter than the input (nearly silent)")
     return out
