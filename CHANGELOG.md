@@ -2,6 +2,14 @@
 
 What changed in Zumzum, newest first. The language version stays 0.1 until its first breaking change.
 
+## 2026-11-12
+
+- We changed `dehum` to a fixed notch: each hum line (f0 and its harmonics) is cut by `depth_db` for the whole file,
+  the same in every frame, one bin either side of the line, and the default FFT is now 32768. Before, each cut
+  followed the level of the neighbouring bins frame by frame. On 20 new test recordings with hum the fixed notch
+  repaired more (median +9.8 dB against +6.4 dB) and left none worse than its input (the old cut left 3).
+- We removed the `gate_db` and `gate_release_ms` options from `denoise`.
+
 ## 2026-11-11
 
 - We made `tools/fast.py` measure the program's loudness, true-peak, loudness-range, RMS and hum checks and the

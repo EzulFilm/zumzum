@@ -94,26 +94,38 @@ def refine_f0(P, freqs, f0, count, search):
     return float(best)
 
 
-def op_dehum(X, p, ctx):
-    freqs = ctx["freqs"]
+def dehum_lines(p, f0, freqs):
+    """[(cut bins, neighbour bins)] for each harmonic of f0 that fits under Nyquist."""
     df = freqs[1] - freqs[0]
-    mag = np.abs(X)
-    f0 = refine_f0((mag ** 2).mean(axis=1), freqs, p["f0_hz"], p["harmonics"], p["search_hz"])
-    ctx["info"]["f0_hz"] = round(f0, 3)
-    g = 10 ** (-p["depth_db"] / 20)
-    half = max(p["width_hz"] / 2, 2 * df)        # at least the Hann main lobe of a stationary tone
+    half = max(p["width_hz"] / 2, df)  # at least one bin either side (a fixed notch: narrow keeps the programme)
     gap, span = half + df, half + df + max(20.0, 6 * df)
-    target = mag.copy()
+    out = []
     for k in range(1, p["harmonics"] + 1):
-        fk = k * f0
-        if fk + span > freqs[-1]:
+        if k * f0 + span > freqs[-1]:
             break
-        d = np.abs(freqs - fk)
-        cut, nb = d <= half, (d > gap) & (d <= span)
-        floor = np.median(mag[nb], axis=0)                 # per frame: the level next to the hum line
-        m = mag[cut]
-        target[cut] = np.maximum(m * g, np.minimum(m, floor[None, :]))
-    return X * (target / np.maximum(mag, EPS))
+        d = np.abs(freqs - k * f0)
+        out.append((np.flatnonzero(d <= half), np.flatnonzero((d > gap) & (d <= span))))
+    return out
+
+
+def dehum_gains(p, lines, n_bins):
+    """One fixed gain per bin for the whole file: every line's bins are cut by depth_db (a fixed notch per hum line);
+    the rest is left alone."""
+    G = np.ones(n_bins)
+    g = 10 ** (-p["depth_db"] / 20)
+    for cut, _ in lines:
+        G[cut] = g
+    return G
+
+
+def op_dehum(X, p, ctx):
+    """A fixed notch per hum line for the whole file: the cut is the same in every frame."""
+    freqs = ctx["freqs"]
+    P = np.abs(X) ** 2
+    f0 = refine_f0(P.mean(axis=1), freqs, p["f0_hz"], p["harmonics"], p["search_hz"])
+    ctx["info"]["f0_hz"] = round(f0, 3)
+    G = dehum_gains(p, dehum_lines(p, f0, freqs), len(freqs))
+    return X * G[:, None]
 
 
 def noise_psd(P, times, profile, freqs=None, sel=None):
@@ -158,7 +170,7 @@ def op_denoise(X, p, ctx):
     gamma = P / N
     if p["mode"] == "subtract":  # power subtraction with over-subtraction (Boll 1979; Berouti et al. 1979)
         G = np.sqrt(np.maximum(1 - p["over"] / np.maximum(gamma, EPS), 0))
-        return X * _smooth_gain(np.clip(G, floor, 1), p, ctx) * _gate(P, N, p, ctx)[None, :]
+        return X * _smooth_gain(np.clip(G, floor, 1), p, ctx)
     # the a-priori SNR floor sets how far noise-only bins can go down; tie it to reduce_db (never above -25 dB)
     a, xi_min = p["smooth"], 10 ** (-max(25.0, p["reduce_db"]) / 10)
     G = np.ones_like(gamma)
@@ -179,27 +191,7 @@ def op_denoise(X, p, ctx):
         g = np.clip(g, floor, 1.0)
         G[:, t] = g
         prev = g * g * gm
-    return X * _smooth_gain(G, p, ctx) * _gate(P, N, p, ctx)[None, :]
-
-
-def _gate(P, N, p, ctx):
-    """A downward expander for noise-only moments: per frame, the posterior SNR in 300-4000 Hz says how likely sound
-    other than noise is present (1 dB -> none, 6 dB -> certainly); that presence opens at once and closes over
-    gate_release_ms, and where it is low every bin goes down a further gate_db."""
-    if p["gate_db"] <= 0:
-        return np.ones(P.shape[1])
-    f = ctx["freqs"]
-    band = (f >= 300) & (f <= 4000)
-    Nf = np.broadcast_to(N, P.shape)  # a fixed estimate (bins, 1) or a tracked one (bins, frames)
-    snr = P[band].mean(axis=0) / np.maximum(Nf[band].mean(axis=0), EPS)  # one SNR per frame
-    pres = np.clip((10 * np.log10(np.maximum(snr, 1e-12)) - 1.0) / 5.0, 0, 1)
-    r = math.exp(-ctx["hop"] / (ctx["sr"] * p["gate_release_ms"] / 1000))
-    held = pres.copy()
-    for t in range(1, len(held)):
-        held[t] = max(pres[t], r * held[t - 1])
-    lead = max(1, int(round(0.02 * ctx["sr"] / ctx["hop"])))  # open 20 ms early so onsets are not clipped
-    held = ndimage.maximum_filter1d(held, size=2 * lead + 1, origin=0)
-    return 10 ** (-p["gate_db"] * (1 - held) / 20)
+    return X * _smooth_gain(G, p, ctx)
 
 
 def _smooth_gain(G, p, ctx):

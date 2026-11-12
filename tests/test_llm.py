@@ -152,5 +152,5 @@ def test_rules_revision_keeps_multi_line_calls_intact():
             "```zumzum\n" + prev + "```\n\nWhat happened:\nFAIL x\n")
     prog, _ = extract(RulesProvider().complete("", user))
     p = check(prog)
-    assert p.ops["d"]["params"]["gate_db"] == 8.0 and "h" in p.ops
+    assert p.ops["d"]["params"]["smooth_ms"] == 40.0 and "h" in p.ops
     assert p.layers == [("main", ["d", "hs", "h"])]

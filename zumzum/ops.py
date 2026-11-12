@@ -71,14 +71,14 @@ OPS = {
     "gain": {"domain": "stft", "about": "raise or lower the selected region",
              "params": {"db": num(-120, 24, None, "gain in dB (negative attenuates)")}},
     "dehum": {"domain": "stft",
-              "about": "remove mains hum: narrow cuts at f0 and its harmonics, each cut down to the level of the "
-                       "neighbouring bins, never more than depth_db; depth is fixed, not signal-dependent",
+              "about": "remove mains hum: a fixed notch of depth_db at f0 and each harmonic, the same for the whole "
+                       "file",
               "params": {"f0_hz": num(20, 400, None, "hum fundamental (50 or 60 for mains)"),
                          "harmonics": int_(1, 40, 10, "number of harmonics, the fundamental included"),
                          "depth_db": num(0, 80, 40, "largest cut"),
                          "width_hz": num(0.5, 20, 3, "width of each cut"),
                          "search_hz": num(0, 2, 0.5, "refine f0 within +- this much (one value for the file)"),
-                         "fft": enum(FFT_SIZES, 16384, "FFT size for this op")}},
+                         "fft": enum(FFT_SIZES, 32768, "FFT size for this op")}},
     "denoise": {"domain": "stft",
                 "about": "broadband noise reduction from a noise estimate (Ephraim-Malah MMSE or log-MMSE, Wiener or "
                          "spectral subtraction)",
@@ -96,8 +96,6 @@ OPS = {
                            "smooth_hz": num(0, 500, 0, "average the gain over this width in frequency (less musical "
                                                        "noise; 0 = off)"),
                            "smooth_ms": num(0, 200, 0, "average the gain over this long in time (0 = off)"),
-                           "gate_db": num(0, 40, 0, "push noise-only moments down this much more (0 = off)"),
-                           "gate_release_ms": num(10, 2000, 200, "how slowly the gate closes after sound stops"),
                            "fft": enum((0,) + FFT_SIZES, 0, "FFT size for this op (0 = the analysis size)")}},
     "declick": {"domain": "time",
                 "about": "find clicks from the error of an autoregressive model and refill them by least-squares AR "

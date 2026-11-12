@@ -25,7 +25,7 @@ import soundfile as sf
 from scipy import signal
 
 from . import loudness
-from .engine import EPS, TP_MARGIN_DB, refine_f0, sel_mask
+from .engine import TP_MARGIN_DB, dehum_gains, dehum_lines, refine_f0, sel_mask
 from .stft import bin_freqs, n_frames, window
 
 CHUNK_SAMPLES = 1 << 20  # about this many samples of frames are worked at a time (8 MB per array of doubles)
@@ -205,34 +205,10 @@ def _chunks(f, n, size, hop):
         yield t0, np.lib.stride_tricks.sliding_window_view(block, size, axis=1)[:, ::hop]
 
 
-def _dehum_bins(p, f0, freqs):
-    df = freqs[1] - freqs[0]
-    half = max(p["width_hz"] / 2, 2 * df)
-    gap, span = half + df, half + df + max(20.0, 6 * df)
-    out = []
-    for k in range(1, p["harmonics"] + 1):
-        fk = k * f0
-        if fk + span > freqs[-1]:
-            break
-        d = np.abs(freqs - fk)
-        out.append((np.flatnonzero(d <= half), np.flatnonzero((d > gap) & (d <= span))))
-    return out
-
-
 def _apply(X, op, state):
-    """One node on a chunk X (frames, bins) of one channel."""
-    p = op["params"]
-    if op["op"] == "gain":
-        return X * state
-    mag = np.abs(X)
-    target = mag.copy()
-    g = 10 ** (-p["depth_db"] / 20)
-    for cut, nb in state:
-        floor = np.median(mag[:, nb], axis=1)
-        m = mag[:, cut]
-        target[:, cut] = np.maximum(m * g, np.minimum(m, floor[:, None]))
-    Y = X * (target / np.maximum(mag, EPS))
-    return X + op["mix"] * (Y - X) if op["mix"] != 1 else Y
+    """One node on a chunk X (frames, bins) of one channel: a fixed gain per bin (gain, and dehum's one cut per line)."""
+    Y = X * state
+    return X + op["mix"] * (Y - X) if op["op"] == "dehum" and op["mix"] != 1 else Y
 
 
 def _temp(dst):
@@ -260,7 +236,9 @@ def run(prog, src, dst, subtype="FLOAT"):
                     for c in range(nch):
                         states[i][c] = 1.0 + op["mix"] * M * (10 ** (p["db"] / 20) - 1.0)
                     continue
-                if p["search_hz"] > 0:  # dehum (always first in its stage): f0 from the mean spectrum of its input
+                # dehum (always first in its stage): its f0 from the mean spectrum of its input (one pass), then one
+                # fixed gain per bin (a notch per hum line), applied like a gain
+                if p["search_hz"] > 0:
                     P, frames = np.zeros((nch, len(freqs))), 0
                     for _, fr in _chunks(f, n, size, hop):
                         for c in range(nch):
@@ -272,7 +250,7 @@ def run(prog, src, dst, subtype="FLOAT"):
                 else:
                     f0s = [p["f0_hz"]] * nch
                 for c in range(nch):
-                    states[i][c] = _dehum_bins(p, f0s[c], freqs)
+                    states[i][c] = dehum_gains(p, dehum_lines(p, f0s[c], freqs), len(freqs))
                 info[f"stage{si}"] = {"op": "dehum", "f0_hz": [round(v, 3) for v in f0s]}
             stage = Stage(size, prog.overlap, nch, n, nodes, states)
             if final and loud:

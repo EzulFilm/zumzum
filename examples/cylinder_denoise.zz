@@ -8,8 +8,8 @@ sel pause = time(t_s: 11.7..12.2)
 sel words = band(f_hz: 400..2000)
 sel treble = band(f_hz: 4500..22050, feather_hz: 1000)   # above what a cylinder carries: mostly hiss
 
-node d = denoise(mode: mmse, profile: noise, reduce_db: 30, noise_db: 3, smooth: 0.99, smooth_hz: 40, smooth_ms: 40,
-  gate_db: 8)
+node d = denoise(mode: logmmse, profile: noise, reduce_db: 30, noise_db: 6, smooth: 0.99, smooth_hz: 40,
+  smooth_ms: 40)
 node hs = gain(db: -4) at treble
 layer main = d -> hs
 

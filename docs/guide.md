@@ -12,7 +12,7 @@ file to a delivery loudness.
 ![A Zumzum program beside the 1888 wax cylinder it cleans up, before and after](img/readme_program.png)
 
 The program on the left is [examples/cylinder_denoise.zz](../examples/cylinder_denoise.zz). It learns the noise from
-one pause, and the hiss in another pause goes down about 23 dB while the band with the words changes by 0.4 dB.
+one pause, and the hiss in another pause goes down about 21 dB while the band with the words changes by 0.7 dB.
 
 **Contents:** [A program](#a-program) · [Quick start](#quick-start) · [Your own file](#your-own-file) ·
 [Delivery rules](#delivery-rules-fix---spec) · [The repair record](#the-repair-record) ·
@@ -208,7 +208,7 @@ wanted, so listen to the result.
 | example | asked for | measured in 0.1 |
 |---|---|---|
 | [hum_voice.zz](../examples/hum_voice.zz) | remove 60 Hz hum, keep the voice | hum no longer above the spectrum around it; voice band within 0.01 dB |
-| [cylinder_denoise.zz](../examples/cylinder_denoise.zz) | less hiss on the 1888 cylinder, keep the words | hiss in a pause down 23 dB; words within 0.4 dB |
+| [cylinder_denoise.zz](../examples/cylinder_denoise.zz) | less hiss on the 1888 cylinder, keep the words | hiss in a pause down 21 dB; words within 0.7 dB |
 | [record_declick.zz](../examples/record_declick.zz) | clicks out of a 1917 78 rpm record | 451 clicks before, 70 after (100 allowed); music within 0.01 dB |
 | [phone_heal.zz](../examples/phone_heal.zz) | dial tones and rumble out of a reading | tones down 11.5 dB, rumble down 29 dB; the change elsewhere 66 dB below the sound there (30 dB required) |
 | [drums_down.zz](../examples/drums_down.zz) | drums down about 12 dB under a piano | cymbal band down 11.9 dB; piano within 1.5 dB (3 allowed) |

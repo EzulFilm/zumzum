@@ -173,7 +173,7 @@ output mix(x: 0, dry: -120)
     assert np.allclose(outs["mix"], outs["x"] + 1e-6 * outs["dry"])
 
 
-def test_denoise_noise_sample_by_selection_and_gate():
+def test_denoise_noise_sample_by_selection():
     rng = np.random.default_rng(4)
     x = speechlike(dur=4)
     x[: SR // 2] = 0
@@ -182,9 +182,9 @@ def test_denoise_noise_sample_by_selection_and_gate():
     src = """zumzum 0.1
 sel noise = time(t_s: 0.05..0.45) or time(t_s: 2.05..2.45)
 sel pause = time(t_s: 2.1..2.4)
-node d = denoise(profile: noise, reduce_db: 30, gate_db: 10)
+node d = denoise(profile: noise, reduce_db: 30)
 layer main = d
-check quiet = drop(at: pause, min_db: 20)
+check quiet = drop(at: pause, min_db: 15)  # 20 dB came with the gate, removed 2026-11-12 (15.7 dB with the sample)
 """
     prog, _, _, res = run(src, noisy)
     assert not prog.warnings, prog.warnings
@@ -206,19 +206,6 @@ def test_declick_selection_follows_the_analysis_grid():
     w = time_weight(prog.ops["c"]["at"], n, SR, prog.size, prog.hop)
     outside = w == 0
     assert np.array_equal(outs["main"][0][outside], x[outside])  # nothing changes where the selection is 0
-
-
-def test_gate_follows_a_noise_step_per_frame():
-    rng = np.random.default_rng(9)
-    n = 6 * SR
-    noise = rng.standard_normal(n) * np.where(np.arange(n) < 3 * SR, 0.001, 0.01)  # noise only, 20 dB step at 3 s
-    src = "zumzum 0.1\nnode d = denoise(reduce_db: 0, track_s: 0.3, gate_db: 12, gate_release_ms: 10)\nlayer main = d\n"
-    prog = check(src)
-    outs, _ = render(prog, noise, SR)
-    y = outs["main"][0]
-    seg = slice(int(5 * SR), int(5.8 * SR))  # well after the step and after the 0.3 s tracker window
-    drop = 10 * np.log10(np.mean(noise[seg] ** 2) / np.mean(y[seg] ** 2))
-    assert drop > 9, drop  # the gate closes on the louder noise too (about 12 dB)
 
 
 def test_damage_gate_catches_a_quiet_input_erased():
