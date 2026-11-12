@@ -18,6 +18,13 @@ PHONE_TOL = 0.025  # Q.24 allows 1.5 % off nominal; plus the analysis bin (10.8 
 AMOUNT = re.compile(r"(?:about|around|roughly|by|some)?\s*(\d+(?:\.\d+)?)\s*db\b")
 
 
+def _tone_half(f, phone):
+    """Half width (Hz) of a tone's box. A phone tone is a pure sine within 1.5 % of its nominal frequency (ITU-T Q.24),
+    found to one analysis bin: that much and no more, so the voice under a keypad tone is not rebuilt with it.
+    Other tones keep +-60 Hz."""
+    return 0.015 * f + 12.0 if phone else 60.0
+
+
 def _w(pattern, n):
     return re.search(r"\b(?:" + pattern + r")\b", n) is not None
 
@@ -73,7 +80,10 @@ def note_goals(note, analysis):
             goal("noise", [], "no quiet span to measure the noise in", status="unmeasurable")
     # rumble: the word, or low-frequency noise, or a traffic / fan / wind / engine sound with a noise word
     if _w(r"rumbl\w*", n) or (_w(r"low[- ]?frequency|low[- ]end|sub-?bass|very low", n) and _w(r"noise|drone|thump\w*|hum", n)) \
-            or (_w(r"traffic|fan|fans|air ?con\w*|wind|engine|truck|trucks|lorry|lorries", n)
+            or (_w(r"drone\w*|boomy|booming", n) and _w(r"below|under|underneath|beneath|bass|low|basement", n)
+                and not _w(r"bagpipes?|tanpura|tambura|harmonium|organ|drone notes?|drone strings?|singer|sings?|singing"
+                           r"|choir|chant\w*|part of the (?:piece|music|song|track)|on purpose|intended", n)) \
+            or (_w(r"traffic|fan|fans|air[- ]?con\w*|wind|engine|truck|trucks|lorry|lorries", n)
                 and _w(r"noise|drone|droning|underneath|under it|low|thump\w*", n)):
         sels.append("sel note_sel_rumble = band(f_hz: 0..70)")
         goal("rumble", ["check note_rumble = drop(at: note_sel_rumble, min_db: 10)"], "under 70 Hz down at least 10 dB")
@@ -96,7 +106,8 @@ def note_goals(note, analysis):
     # their own words
     # "ringing out" is music, not a tone; "ringing" needs a phone / bell / beep context
     ring_out = _w(r"rings? out|ringing out", n)
-    tone_ctx = _w(r"phones?|dial|dials|dialling|dialing|beeps?|keypad|touch-?tones?|dtmf|bells?|ring tones?", n)
+    tone_ctx = _w(r"(?:tele)?phones?|dial|dials|dialling|dialing|beeps?|keypad|key ?pad|number[- ]?pad|touch-?tones?|dtmf"
+                  r"|(?:push-?)?buttons?|bells?|ring tones?", n)
     if _w(r"beeps?|dial|dials|dialling|dialing|whistles?|squeals?|keypad|touch-?tones?|dtmf", n) or (
             _w(r"tones?|rings?|ringing", n) and tone_ctx and not ring_out):
         ev = list(analysis.get("tonal_events") or [])
@@ -104,12 +115,15 @@ def note_goals(note, analysis):
         if mt:  # "at about 0:09": the events within 5 s after that time
             t = int(mt.group(1)) * 60 + int(mt.group(2))
             ev = [e for e in ev if t - 1 <= e["t_s"][0] <= t + 5]
-        phone = _w(r"phones?|dial|dials|dialling|dialing|keypad|touch-?tones?|dtmf", n)
+        phone = _w(r"(?:tele)?phones?|dial|dials|dialling|dialing|dialled|keypad|key ?pad|number[- ]?pad|touch-?tones?|dtmf"
+                   r"|(?:push-?)?buttons?|keys? (?:tones?|beeps?)", n)
         if phone:  # only events at a telephone frequency
             ev = [e for e in ev if any(abs(e["f_hz"] - f) <= PHONE_TOL * f for f in PHONE_HZ)]
         if ev:
             boxes = [f"box(t_s: {max(0, e['t_s'][0] - 0.05):.2f}..{e['t_s'][1] + 0.05:.2f}, "
-                     f"f_hz: {max(0, e['f_hz'] - 60):g}..{e['f_hz'] + 60:g})" for e in ev[:16]]  # the checker allows 16 calls in a sel; ev is strongest first
+                     f"f_hz: {round(max(0, e['f_hz'] - _tone_half(e['f_hz'], phone)), 1):g}.."
+                     f"{round(e['f_hz'] + _tone_half(e['f_hz'], phone), 1):g})"
+                     for e in ev[:16]]  # the checker allows 16 calls in a sel; ev is strongest first
             sels.append("sel note_sel_tones = (" + "\n  or ".join(boxes) + ")")
             if keep_voice:  # box by box: the tone gone (<= 3 dB over its surroundings), the voice in it kept (<= 6 under).
                 lines = ["check note_tones = filled(at: note_sel_tones, max_above_db: 3, max_below_db: 200)",

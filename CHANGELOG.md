@@ -4,6 +4,13 @@ What changed in Zumzum, newest first. The language version stays 0.1 until its f
 
 ## 2026-11-12
 
+- The rules driver reads more ways of saying it: a phone in other words (telephone, number pad, push-button keys),
+  rumble described as a drone or boom underneath (but not a wanted drone such as bagpipes or a singer), and it writes
+  hum removal for only one mains series when one clearly stands higher. Keypad and dial tones are healed in narrow
+  boxes around each tone, so less of the voice under them is rebuilt.
+- We made `denoise` gentler on old recordings: when no noise sample is given, its noise estimate under 500 Hz is no
+  higher than each frequency's steady level, so less of the programme's bass is taken for noise; the rules driver
+  uses it only when the request asks for hiss or noise removal, and more gently (mmse, 8 dB, noise_db -3).
 - We added a change budget to the damage gate: hum and rumble are steady, so a `dehum` node or a low cut (a gain under
   0 dB on a band that ends at or under 200 Hz) may remove only a fixed amount more than the steady hum or low noise it
   targets; removing more is reported as taking the programme. The steady level of each bin is its power averaged over

@@ -128,6 +128,10 @@ def op_dehum(X, p, ctx):
     return X * G[:, None]
 
 
+LOW_FIX_HZ = 500.0
+LOW_FIX_BIAS = 1.25
+
+
 def noise_psd(P, times, profile, freqs=None, sel=None):
     """Mean power per bin over a noise sample: a selection (`profile: <sel>`; each bin averaged over the frames where it
     is fully selected, bins the selection never covers get the mean of the frames it does select), a time span, or
@@ -145,7 +149,21 @@ def noise_psd(P, times, profile, freqs=None, sel=None):
             return P[:, sel].mean(axis=1)
     k = max(5, int(0.1 * P.shape[1]))
     quiet = np.argsort(P.sum(axis=0))[:k]
-    return P[:, quiet].mean(axis=1)
+    N = P[:, quiet].mean(axis=1)
+    if freqs is not None and len(times) > 1:
+        # the quietest frames still hold the programme's bass: under LOW_FIX_HZ the estimate is no higher than the bin's
+        # steady level (its power averaged over 0.4 s, then the 10th percentile) times LOW_FIX_BIAS
+        lo = freqs < LOW_FIX_HZ
+        if lo.any():
+            hop_s = float(times[1] - times[0])
+            w = max(1, int(round(0.4 / hop_s)))
+            Q = P[lo]
+            if Q.shape[1] > w:
+                c = np.cumsum(np.concatenate([np.zeros((Q.shape[0], 1)), Q], axis=1), axis=1)
+                steady = np.percentile((c[:, w:] - c[:, :-w]) / w, 10, axis=1)
+                N = N.copy()
+                N[lo] = np.minimum(N[lo], steady * LOW_FIX_BIAS)
+    return N
 
 
 def track_noise(P, hop, sr, window_s, alpha=0.85, bias=1.5):

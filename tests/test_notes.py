@@ -30,7 +30,7 @@ EVENTS = [{"t_s": [9.0, 9.25], "f_hz": 441.4, "above_db": 27},     # dial tone (
 def test_a_phone_note_keeps_only_telephone_frequencies():
     sels, _, goals = note_goals("Someone dials a phone at about 0:09. Remove the dial tones.", {"tonal_events": EVENTS})
     sel = next(s for s in sels if s.startswith("sel note_sel_tones"))
-    assert "1415..1535" in sel and "381.4..501.4" in sel  # 1475 and 441.4, +-60 Hz
+    assert "1440.9..1509.1" in sel and "422.8..460" in sel  # 1475 and 441.4: 1.5 % + 12 Hz either side
     assert "209.2" not in sel and "542.9" not in sel and "392.2" not in sel
     assert goals[0]["goal"] == "tones" and "2 telephone-frequency" in goals[0]["why"]
 

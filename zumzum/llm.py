@@ -125,6 +125,10 @@ class OpenWeightProvider:
         return data["choices"][0]["message"]["content"] or ""
 
 
+MAINS_LEAD_DB = 6.0  # one mains series this much higher than the other: write only its dehum node (a node at the
+# wrong series cuts the voice at its harmonics)
+
+
 class RulesProvider:
     """No model: keyword rules over the note and the analysis numbers. A floor for the loop and a test fixture."""
     last_usage = {"model": "rules"}
@@ -138,6 +142,9 @@ class RulesProvider:
         if "hum" in want:
             f0 = (a.get("hum") or {}).get("f0_hz")
             named = 60 if re.search(r"\b60 ?hz\b", note) else 50 if re.search(r"\b50 ?hz\b", note) else None
+            guess = a.get("mains_guess") or {}
+            if not f0 and not named and guess.get("lead_db", 0) >= MAINS_LEAD_DB:
+                f0 = guess["f0_hz"]  # no line clears 6 dB, but one series clearly stands higher than the other
             fs = [round(f0)] if f0 else [named] if named else [50, 60]  # unknown mains: both series
             for f in fs:
                 ops.append(f"node {'h' if len(fs) == 1 else f'h{f}'} = dehum(f0_hz: {f}, harmonics: 16, depth_db: 50)")
@@ -152,7 +159,8 @@ class RulesProvider:
                 own.append(f"sel rule_tones = {box}")
                 ops.append("node t = heal(direction: time, context_ms: 60) at rule_tones")
         if "noise" in want:
-            ops.append("node d = denoise(mode: mmse, reduce_db: 12)")
+            # gentle: with old-recording noise mmse at 12 dB did more harm; only when the note asks for hiss / noise removal
+            ops.append("node d = denoise(mode: mmse, reduce_db: 8, noise_db: -3)")
         if "drums" in want:
             ops.append("node p = split_hp(part: harmonic, rest_db: -12, time_ms: 800, freq_hz: 1000)")
         if not ops:

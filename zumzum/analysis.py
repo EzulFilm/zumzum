@@ -18,6 +18,21 @@ def _db(x):
     return float(10 * np.log10(max(float(x), 1e-30)))
 
 
+def mains_guess(a, sr):
+    """The mains series (50 or 60 Hz, 10 harmonics) whose lines stand higher above their neighbours, as the
+    mains_hum_drop check measures it, and by how much (dB of excess / floor) over the other. None if too short."""
+    if np.atleast_2d(a).shape[1] < 4096:
+        return None
+    r = {}
+    for m in (50.0, 60.0):
+        f0, exc, flo = hum_excess(a, sr, m, 10)
+        r[m] = (exc / max(flo, 1e-30), f0)
+    best = max(r, key=lambda m: r[m][0])
+    other = 60.0 if best == 50.0 else 50.0
+    lead = 10 * np.log10(max(r[best][0], 1e-12) / max(r[other][0], 1e-12))
+    return {"f0_hz": round(r[best][1], 2), "lead_db": round(float(lead), 1)}
+
+
 def analyze(audio, sr):
     a = np.atleast_2d(np.asarray(audio, dtype=np.float64))
     mono = a.mean(axis=0)
@@ -60,6 +75,7 @@ def analyze(audio, sr):
         "quiet_spans_s": [[round(s, 2), round(e, 2)] for s, e in spans[:3]],
         "hum": hum if hum and hum["above_floor_db"] >= 6 else None,
         "clicks": clicks, "clicks_per_min": round(clicks / max(n / sr / 60, 1e-9), 1),
+        "mains_guess": mains_guess(a, sr),  # which mains series stands higher when no hum line clears 6 dB
         "tonal_events": tonal_events(P, freqs, times, max_events=64),  # the summary shows 8; a note's time window may need the rest
     }
 
